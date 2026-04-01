@@ -1,4 +1,4 @@
-# 🚀 FocusMate AI
+# FocusMate AI
 
 A full-stack productivity app built with React and Node.js.
 
