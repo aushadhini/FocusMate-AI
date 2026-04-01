@@ -16,10 +16,6 @@ A full-stack productivity app built with React and Node.js.
 - Backend: Node.js + Express
 - Styling: CSS (inline)
 
-## 📸 Screenshots
-
-(Add your app screenshot here)
-
 ## ⚙️ How to Run
 
 ### Backend
