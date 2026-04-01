@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
+import Timer from "./components/Timer";
 
 function App() {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState("");
 
-  // 🆕 EDIT STATES
+  // EDIT STATES
   const [editingIndex, setEditingIndex] = useState(null);
   const [editedText, setEditedText] = useState("");
+
+  // NEW: ACTIVE TASK
+  const [activeTask, setActiveTask] = useState(null);
 
   useEffect(() => {
     fetch("http://localhost:3000/tasks")
@@ -45,9 +49,12 @@ function App() {
     const res = await fetch("http://localhost:3000/tasks");
     const data = await res.json();
     setTasks(data);
+
+    if (activeTask === tasks[indexToDelete]?.text) {
+      setActiveTask(null);
+    }
   };
 
-  // 🆕 SAVE EDIT
   const saveEdit = async (index) => {
     await fetch("http://localhost:3000/edit-task", {
       method: "POST",
@@ -59,6 +66,10 @@ function App() {
         newText: editedText,
       }),
     });
+
+    if (activeTask === tasks[index]?.text) {
+      setActiveTask(editedText);
+    }
 
     setEditingIndex(null);
 
@@ -93,8 +104,16 @@ function App() {
       }}
     >
       <h1 style={{ fontSize: "40px", marginBottom: "20px" }}>
-        🚀 FocusMate AI
+        FocusMate AI
       </h1>
+
+      {activeTask && (
+        <h3 style={{ marginBottom: "10px", color: "#22c55e" }}>
+          🎯 Focusing on: {activeTask}
+        </h3>
+      )}
+
+      <Timer activeTask={activeTask} />
 
       <div
         style={{
@@ -158,8 +177,14 @@ function App() {
         {tasks.map((task, index) => (
           <li
             key={index}
+            onClick={() => {
+              if (editingIndex !== index) {
+                setActiveTask(task.text);
+              }
+            }}
             style={{
-              background: "#1e1e2f",
+              background:
+                activeTask === task.text ? "#334155" : "#1e1e2f",
               margin: "10px 0",
               padding: "12px 20px",
               borderRadius: "12px",
@@ -167,6 +192,11 @@ function App() {
               justifyContent: "space-between",
               alignItems: "center",
               transition: "0.3s",
+              cursor: "pointer",
+              border:
+                activeTask === task.text
+                  ? "2px solid #22c55e"
+                  : "2px solid transparent",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "scale(1.03)";
@@ -179,7 +209,9 @@ function App() {
               <input
                 type="checkbox"
                 checked={task.completed}
-                onChange={async () => {
+                onChange={async (e) => {
+                  e.stopPropagation();
+
                   await fetch("http://localhost:3000/toggle-task", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -192,11 +224,11 @@ function App() {
                 }}
               />
 
-              {/* 🆕 EDIT MODE */}
               {editingIndex === index ? (
                 <input
                   value={editedText}
                   onChange={(e) => setEditedText(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
                   style={{ marginLeft: "10px", padding: "5px" }}
                 />
               ) : (
@@ -215,10 +247,12 @@ function App() {
             </div>
 
             <div style={{ display: "flex", gap: "10px" }}>
-              {/* 🆕 EDIT BUTTON */}
               {editingIndex === index ? (
                 <button
-                  onClick={() => saveEdit(index)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveEdit(index);
+                  }}
                   style={{
                     background: "#00c896",
                     border: "none",
@@ -231,7 +265,8 @@ function App() {
                 </button>
               ) : (
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setEditingIndex(index);
                     setEditedText(task.text);
                   }}
@@ -248,7 +283,10 @@ function App() {
               )}
 
               <button
-                onClick={() => deleteTask(index)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteTask(index);
+                }}
                 style={{
                   background: "red",
                   color: "white",
