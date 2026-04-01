@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import Timer from "./components/Timer";
 
+const API_URL = "http://localhost:3000";
+
 function App() {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState("");
@@ -13,7 +15,7 @@ function App() {
   const [activeTask, setActiveTask] = useState(null);
 
   useEffect(() => {
-    fetch("http://localhost:3000/tasks")
+    fetch(`${API_URL}/tasks`)
       .then((res) => res.json())
       .then((data) => setTasks(data))
       .catch((err) => console.error("ERROR:", err));
@@ -22,7 +24,7 @@ function App() {
   const addTask = async () => {
     if (!newTask.trim()) return;
 
-    await fetch("http://localhost:3000/add-task", {
+    await fetch(`${API_URL}/add-task`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -32,13 +34,13 @@ function App() {
 
     setNewTask("");
 
-    const res = await fetch("http://localhost:3000/tasks");
+    const res = await fetch(`${API_URL}/tasks`);
     const data = await res.json();
     setTasks(data);
   };
 
   const deleteTask = async (indexToDelete) => {
-    await fetch("http://localhost:3000/delete-task", {
+    await fetch(`${API_URL}/delete-task`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -46,7 +48,7 @@ function App() {
       body: JSON.stringify({ index: indexToDelete }),
     });
 
-    const res = await fetch("http://localhost:3000/tasks");
+    const res = await fetch(`${API_URL}/tasks`);
     const data = await res.json();
     setTasks(data);
 
@@ -56,7 +58,7 @@ function App() {
   };
 
   const saveEdit = async (index) => {
-    await fetch("http://localhost:3000/edit-task", {
+    await fetch(`${API_URL}/edit-task`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -73,7 +75,7 @@ function App() {
 
     setEditingIndex(null);
 
-    const res = await fetch("http://localhost:3000/tasks");
+    const res = await fetch(`${API_URL}/tasks`);
     const data = await res.json();
     setTasks(data);
   };
@@ -212,13 +214,13 @@ function App() {
                 onChange={async (e) => {
                   e.stopPropagation();
 
-                  await fetch("http://localhost:3000/toggle-task", {
+                  await fetch(`${API_URL}/toggle-task`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ index }),
                   });
 
-                  const res = await fetch("http://localhost:3000/tasks");
+                  const res = await fetch(`${API_URL}/tasks`);
                   const data = await res.json();
                   setTasks(data);
                 }}
