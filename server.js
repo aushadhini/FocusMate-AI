@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -39,9 +39,10 @@ app.post("/toggle-task", (req, res) => {
 });
 
 app.post("/edit-task", (req, res) => {
-  const { index, newText } = req.body;
+  const index = req.body.index;
+  const newText = req.body.newText;
   tasks[index].text = newText;
-  res.send("Task updated");
+  res.send("Task edited");
 });
 
 app.listen(PORT, () => {

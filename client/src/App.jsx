@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import "./App.css";
 import Timer from "./components/Timer";
 
 const API_URL = "http://localhost:3000";
@@ -6,78 +7,114 @@ const API_URL = "http://localhost:3000";
 function App() {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState("");
-
-  // EDIT STATES
   const [editingIndex, setEditingIndex] = useState(null);
   const [editedText, setEditedText] = useState("");
-
-  // NEW: ACTIVE TASK
   const [activeTask, setActiveTask] = useState(null);
 
+  const loadTasks = async () => {
+    try {
+      const res = await fetch(`${API_URL}/tasks`);
+      const data = await res.json();
+      setTasks(data);
+    } catch (err) {
+      console.error("ERROR:", err);
+    }
+  };
+
   useEffect(() => {
-    fetch(`${API_URL}/tasks`)
-      .then((res) => res.json())
-      .then((data) => setTasks(data))
-      .catch((err) => console.error("ERROR:", err));
+    const getTasks = async () => {
+      try {
+        const res = await fetch(`${API_URL}/tasks`);
+        const data = await res.json();
+        setTasks(data);
+      } catch (err) {
+        console.error("ERROR:", err);
+      }
+    };
+
+    getTasks();
   }, []);
 
   const addTask = async () => {
     if (!newTask.trim()) return;
 
-    await fetch(`${API_URL}/add-task`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ task: newTask }),
-    });
+    try {
+      await fetch(`${API_URL}/add-task`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ task: newTask }),
+      });
 
-    setNewTask("");
-
-    const res = await fetch(`${API_URL}/tasks`);
-    const data = await res.json();
-    setTasks(data);
+      setNewTask("");
+      loadTasks();
+    } catch (err) {
+      console.error("Add task error:", err);
+    }
   };
 
   const deleteTask = async (indexToDelete) => {
-    await fetch(`${API_URL}/delete-task`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ index: indexToDelete }),
-    });
+    try {
+      await fetch(`${API_URL}/delete-task`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ index: indexToDelete }),
+      });
 
-    const res = await fetch(`${API_URL}/tasks`);
-    const data = await res.json();
-    setTasks(data);
+      if (activeTask === tasks[indexToDelete]?.text) {
+        setActiveTask(null);
+      }
 
-    if (activeTask === tasks[indexToDelete]?.text) {
-      setActiveTask(null);
+      loadTasks();
+    } catch (err) {
+      console.error("Delete task error:", err);
     }
   };
 
   const saveEdit = async (index) => {
-    await fetch(`${API_URL}/edit-task`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        index,
-        newText: editedText,
-      }),
-    });
+    if (!editedText.trim()) return;
 
-    if (activeTask === tasks[index]?.text) {
-      setActiveTask(editedText);
+    try {
+      await fetch(`${API_URL}/edit-task`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          index,
+          newText: editedText,
+        }),
+      });
+
+      if (activeTask === tasks[index]?.text) {
+        setActiveTask(editedText);
+      }
+
+      setEditingIndex(null);
+      setEditedText("");
+      loadTasks();
+    } catch (err) {
+      console.error("Edit task error:", err);
     }
+  };
 
-    setEditingIndex(null);
+  const toggleTask = async (index) => {
+    try {
+      await fetch(`${API_URL}/toggle-task`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ index }),
+      });
 
-    const res = await fetch(`${API_URL}/tasks`);
-    const data = await res.json();
-    setTasks(data);
+      loadTasks();
+    } catch (err) {
+      console.error("Toggle task error:", err);
+    }
   };
 
   const suggestTask = () => {
@@ -96,152 +133,68 @@ function App() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #0f172a, #1e293b)",
-        padding: "20px",
-        color: "white",
-        textAlign: "center",
-      }}
-    >
-      <h1 style={{ fontSize: "40px", marginBottom: "20px" }}>
-        FocusMate AI
-      </h1>
+    <div className="container">
+      <h1 className="title">FocusMate AI</h1>
 
       {activeTask && (
-        <h3 style={{ marginBottom: "10px", color: "#22c55e" }}>
-          🎯 Focusing on: {activeTask}
-        </h3>
+        <h3 className="active-task">🎯 Focusing on: {activeTask}</h3>
       )}
 
-      <Timer activeTask={activeTask} />
+      <Timer key={activeTask || "no-task"} activeTask={activeTask} />
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          gap: "10px",
-          marginBottom: "20px",
-          flexWrap: "wrap",
-        }}
-      >
+      <div className="input-group">
         <input
+          className="input"
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
           placeholder="Enter a task"
-          style={{
-            padding: "10px",
-            borderRadius: "8px",
-            border: "none",
-            width: "250px",
-            outline: "none",
-          }}
         />
 
-        <button
-          onClick={addTask}
-          style={{
-            background: "#00c896",
-            color: "white",
-            border: "none",
-            padding: "10px 15px",
-            borderRadius: "8px",
-            cursor: "pointer",
-          }}
-        >
+        <button className="btn btn-add" onClick={addTask}>
           Add
         </button>
 
-        <button
-          onClick={suggestTask}
-          style={{
-            background: "#6c63ff",
-            color: "white",
-            border: "none",
-            padding: "10px 15px",
-            borderRadius: "8px",
-            cursor: "pointer",
-          }}
-        >
+        <button className="btn btn-ai" onClick={suggestTask}>
           AI ✨
         </button>
       </div>
 
-      <ul
-        style={{
-          listStyle: "none",
-          padding: 0,
-          maxWidth: "500px",
-          margin: "20px auto",
-        }}
-      >
+      <ul className="task-list">
         {tasks.map((task, index) => (
           <li
             key={index}
+            className={`task-item ${
+              activeTask === task.text ? "task-active" : ""
+            }`}
             onClick={() => {
               if (editingIndex !== index) {
                 setActiveTask(task.text);
               }
-            }}
-            style={{
-              background:
-                activeTask === task.text ? "#334155" : "#1e1e2f",
-              margin: "10px 0",
-              padding: "12px 20px",
-              borderRadius: "12px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              transition: "0.3s",
-              cursor: "pointer",
-              border:
-                activeTask === task.text
-                  ? "2px solid #22c55e"
-                  : "2px solid transparent",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "scale(1.03)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "scale(1)";
             }}
           >
             <div style={{ display: "flex", alignItems: "center" }}>
               <input
                 type="checkbox"
                 checked={task.completed}
-                onChange={async (e) => {
+                onChange={(e) => {
                   e.stopPropagation();
-
-                  await fetch(`${API_URL}/toggle-task`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ index }),
-                  });
-
-                  const res = await fetch(`${API_URL}/tasks`);
-                  const data = await res.json();
-                  setTasks(data);
+                  toggleTask(index);
                 }}
               />
 
               {editingIndex === index ? (
                 <input
+                  className="input"
                   value={editedText}
                   onChange={(e) => setEditedText(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
-                  style={{ marginLeft: "10px", padding: "5px" }}
+                  style={{ marginLeft: "10px", width: "180px" }}
                 />
               ) : (
                 <span
-                  style={{
-                    marginLeft: "10px",
-                    textDecoration: task.completed
-                      ? "line-through"
-                      : "none",
-                    opacity: task.completed ? 0.5 : 1,
-                  }}
+                  className={`task-text ${
+                    task.completed ? "task-completed" : ""
+                  }`}
                 >
                   {task.text}
                 </span>
@@ -251,33 +204,21 @@ function App() {
             <div style={{ display: "flex", gap: "10px" }}>
               {editingIndex === index ? (
                 <button
+                  className="icon-btn save-btn"
                   onClick={(e) => {
                     e.stopPropagation();
                     saveEdit(index);
-                  }}
-                  style={{
-                    background: "#00c896",
-                    border: "none",
-                    padding: "5px 10px",
-                    borderRadius: "5px",
-                    cursor: "pointer",
                   }}
                 >
                   💾
                 </button>
               ) : (
                 <button
+                  className="icon-btn edit-btn"
                   onClick={(e) => {
                     e.stopPropagation();
                     setEditingIndex(index);
                     setEditedText(task.text);
-                  }}
-                  style={{
-                    background: "#ffc107",
-                    border: "none",
-                    padding: "5px 10px",
-                    borderRadius: "5px",
-                    cursor: "pointer",
                   }}
                 >
                   ✏️
@@ -285,17 +226,10 @@ function App() {
               )}
 
               <button
+                className="icon-btn delete-btn"
                 onClick={(e) => {
                   e.stopPropagation();
                   deleteTask(index);
-                }}
-                style={{
-                  background: "red",
-                  color: "white",
-                  border: "none",
-                  padding: "5px 10px",
-                  borderRadius: "5px",
-                  cursor: "pointer",
                 }}
               >
                 ❌
