@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import Timer from "./components/Timer";
 
-const API_URL = "http://localhost:3000";
+const API_URL = "https://focusmate-ai-production.up.railway.app";
 
 function App() {
   const [tasks, setTasks] = useState([]);
