@@ -22,17 +22,26 @@ function App() {
   };
 
   useEffect(() => {
-    const getTasks = async () => {
+    let ignore = false;
+
+    const fetchTasks = async () => {
       try {
         const res = await fetch(`${API_URL}/tasks`);
         const data = await res.json();
-        setTasks(data);
+
+        if (!ignore) {
+          setTasks(data);
+        }
       } catch (err) {
         console.error("ERROR:", err);
       }
     };
 
-    getTasks();
+    fetchTasks();
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   const addTask = async () => {
@@ -117,30 +126,20 @@ function App() {
     }
   };
 
-  const suggestTask = () => {
-    const suggestions = [
-      "25-minute deep work session",
-      "Revise React concepts",
-      "Practice Express routes",
-      "Update GitHub repository",
-      "Complete one UI screen design",
-    ];
-
-    const randomTask =
-      suggestions[Math.floor(Math.random() * suggestions.length)];
-
-    setNewTask(randomTask);
-  };
-
   return (
     <div className="container">
       <h1 className="title">FocusMate AI</h1>
+      <p className="subtitle">
+        Stay focused. Organize tasks. Finish with clarity.
+      </p>
 
       {activeTask && (
         <h3 className="active-task">🎯 Focusing on: {activeTask}</h3>
       )}
 
-      <Timer key={activeTask || "no-task"} activeTask={activeTask} />
+      <div className="timer-wrapper">
+        <Timer key={activeTask || "no-task"} activeTask={activeTask} />
+      </div>
 
       <div className="input-group">
         <input
@@ -153,91 +152,92 @@ function App() {
         <button className="btn btn-add" onClick={addTask}>
           Add
         </button>
-
-        <button className="btn btn-ai" onClick={suggestTask}>
-          AI ✨
-        </button>
       </div>
 
-      <ul className="task-list">
-        {tasks.map((task, index) => (
-          <li
-            key={index}
-            className={`task-item ${
-              activeTask === task.text ? "task-active" : ""
-            }`}
-            onClick={() => {
-              if (editingIndex !== index) {
-                setActiveTask(task.text);
-              }
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <input
-                type="checkbox"
-                checked={task.completed}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  toggleTask(index);
-                }}
-              />
-
-              {editingIndex === index ? (
+      {tasks.length === 0 ? (
+        <div className="empty-state">
+          No tasks yet. Add one and start your focus session.
+        </div>
+      ) : (
+        <ul className="task-list">
+          {tasks.map((task, index) => (
+            <li
+              key={index}
+              className={`task-item ${
+                activeTask === task.text ? "task-active" : ""
+              }`}
+              onClick={() => {
+                if (editingIndex !== index) {
+                  setActiveTask(task.text);
+                }
+              }}
+            >
+              <div className="task-left">
                 <input
-                  className="input"
-                  value={editedText}
-                  onChange={(e) => setEditedText(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  style={{ marginLeft: "10px", width: "180px" }}
+                  type="checkbox"
+                  checked={task.completed}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    toggleTask(index);
+                  }}
                 />
-              ) : (
-                <span
-                  className={`task-text ${
-                    task.completed ? "task-completed" : ""
-                  }`}
-                >
-                  {task.text}
-                </span>
-              )}
-            </div>
 
-            <div style={{ display: "flex", gap: "10px" }}>
-              {editingIndex === index ? (
+                {editingIndex === index ? (
+                  <input
+                    className="input"
+                    value={editedText}
+                    onChange={(e) => setEditedText(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span
+                    className={`task-text ${
+                      task.completed ? "task-completed" : ""
+                    }`}
+                  >
+                    {task.text}
+                  </span>
+                )}
+              </div>
+
+              <div className="task-actions">
+                {editingIndex === index ? (
+                  <button
+                    className="icon-btn save-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      saveEdit(index);
+                    }}
+                  >
+                    💾
+                  </button>
+                ) : (
+                  <button
+                    className="icon-btn edit-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingIndex(index);
+                      setEditedText(task.text);
+                    }}
+                  >
+                    ✏️
+                  </button>
+                )}
+
                 <button
-                  className="icon-btn save-btn"
+                  className="icon-btn delete-btn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    saveEdit(index);
+                    deleteTask(index);
                   }}
                 >
-                  💾
+                  ❌
                 </button>
-              ) : (
-                <button
-                  className="icon-btn edit-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingIndex(index);
-                    setEditedText(task.text);
-                  }}
-                >
-                  ✏️
-                </button>
-              )}
-
-              <button
-                className="icon-btn delete-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteTask(index);
-                }}
-              >
-                ❌
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
