@@ -245,3 +245,8 @@ body {
     justify-content: flex-end;
   }
 }
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
