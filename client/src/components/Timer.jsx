@@ -1,12 +1,61 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { supabase } from "../supabase";
 
-function Timer({ activeTask }) {
+function Timer({ activeTask, user }) {
   const [secondsLeft, setSecondsLeft] = useState(25 * 60);
-  const [isRunning, setIsRunning] = useState(!!activeTask);
+  const [isRunning, setIsRunning] = useState(false);
+  const [sessions, setSessions] = useState(0);
 
-  const [sessions, setSessions] = useState(() => {
-    return Number(localStorage.getItem("sessions")) || 0;
-  });
+  const saveSession = useCallback(async () => {
+    if (!user) return;
+
+    const { error } = await supabase.from("sessions").insert([
+      {
+        user_id: user.id,
+      },
+    ]);
+
+    if (error) {
+      console.error("Save session error:", error.message);
+      return;
+    }
+
+    setSessions((prev) => prev + 1);
+    alert("Focus session completed! 🎉");
+  }, [user]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadSessions = async () => {
+      if (!user) {
+        if (!ignore) {
+          setSessions(0);
+        }
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Fetch sessions error:", error.message);
+        return;
+      }
+
+      if (!ignore) {
+        setSessions(data?.length || 0);
+      }
+    };
+
+    loadSessions();
+
+    return () => {
+      ignore = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!isRunning) return;
@@ -16,14 +65,7 @@ function Timer({ activeTask }) {
         if (prev <= 1) {
           clearInterval(timer);
           setIsRunning(false);
-
-          setSessions((oldSessions) => {
-            const newCount = oldSessions + 1;
-            localStorage.setItem("sessions", newCount);
-            return newCount;
-          });
-
-          alert("Focus session completed! 🎉");
+          void saveSession();
           return 0;
         }
 
@@ -32,13 +74,22 @@ function Timer({ activeTask }) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isRunning]);
+  }, [isRunning, saveSession]);
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
 
-  const startTimer = () => setIsRunning(true);
-  const pauseTimer = () => setIsRunning(false);
+  const startTimer = () => {
+    if (!activeTask) {
+      alert("Please select a task first.");
+      return;
+    }
+    setIsRunning(true);
+  };
+
+  const pauseTimer = () => {
+    setIsRunning(false);
+  };
 
   const resetTimer = () => {
     setIsRunning(false);
@@ -61,7 +112,9 @@ function Timer({ activeTask }) {
       <h2 style={{ marginBottom: "10px" }}>⏱ Focus Timer</h2>
 
       <p style={{ color: "#94a3b8", marginBottom: "6px" }}>
-        {activeTask ? `Working on: ${activeTask}` : "Select a task to focus on"}
+        {activeTask
+          ? `Working on: ${activeTask.text || activeTask}`
+          : "Select a task to focus on"}
       </p>
 
       <p style={{ color: "#22c55e", marginBottom: "14px", fontWeight: "600" }}>

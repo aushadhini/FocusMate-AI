@@ -250,3 +250,13 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.logout-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background: #ef4444;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+}

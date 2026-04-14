@@ -2,281 +2,261 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import Timer from "./components/Timer";
 import { supabase } from "./supabase";
+import Auth from "./Auth";
 
 function App() {
+  const [session, setSession] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState("");
   const [editingIndex, setEditingIndex] = useState(null);
   const [editedText, setEditedText] = useState("");
   const [activeTask, setActiveTask] = useState(null);
-  
-  console.log("SUPABASE URL:", import.meta.env.VITE_SUPABASE_URL);
-  console.log("SUPABASE KEY:", import.meta.env.VITE_SUPABASE_KEY);
+  const [loading, setLoading] = useState(true);
 
-  const refreshTasks = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .order("id", { ascending: true });
+  useEffect(() => {
+    let mounted = true;
 
-      if (error) {
-        console.error("Load tasks error:", error);
-        return;
+    const getSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (mounted) {
+        setSession(session);
+        setLoading(false);
       }
+    };
 
-      setTasks(data || []);
-    } catch (err) {
-      console.error("ERROR:", err);
-    }
-  };
+    getSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const user = session?.user;
 
   useEffect(() => {
     let ignore = false;
 
-    const fetchTasks = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("tasks")
-          .select("*")
-          .order("id", { ascending: true });
-
-        if (error) {
-          console.error("Load tasks error:", error);
-          return;
-        }
-
+    const loadTasks = async () => {
+      if (!user) {
         if (!ignore) {
-          setTasks(data || []);
+          setTasks([]);
         }
-      } catch (err) {
-        console.error("ERROR:", err);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("id", { ascending: true });
+
+      if (error) {
+        console.error("Fetch tasks error:", error.message);
+        return;
+      }
+
+      if (!ignore) {
+        setTasks(data || []);
       }
     };
 
-    fetchTasks();
+    loadTasks();
 
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [user]);
+
+  const refreshTasks = async () => {
+    if (!user) {
+      setTasks([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("id", { ascending: true });
+
+    if (error) {
+      console.error("Refresh tasks error:", error.message);
+      return;
+    }
+
+    setTasks(data || []);
+  };
 
   const addTask = async () => {
-    if (!newTask.trim()) return;
+    if (!newTask.trim() || !user) return;
 
-    try {
-      const { error } = await supabase.from("tasks").insert([
-        {
-          text: newTask.trim(),
-          completed: false,
-        },
-      ]);
+    const { error } = await supabase.from("tasks").insert([
+      {
+        text: newTask.trim(),
+        completed: false,
+        user_id: user.id,
+      },
+    ]);
 
-      if (error) {
-        console.error("Add task error:", error);
-        return;
-      }
-
-      setNewTask("");
-      refreshTasks();
-    } catch (err) {
-      console.error("Add task error:", err);
+    if (error) {
+      console.error("Add task error:", error.message);
+      return;
     }
+
+    setNewTask("");
+    await refreshTasks();
   };
 
-  const deleteTask = async (idToDelete, taskText) => {
-    try {
-      const { error } = await supabase
-        .from("tasks")
-        .delete()
-        .eq("id", idToDelete);
+  const deleteTask = async (id) => {
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
 
-      if (error) {
-        console.error("Delete task error:", error);
-        return;
-      }
-
-      if (activeTask === taskText) {
-        setActiveTask(null);
-      }
-
-      refreshTasks();
-    } catch (err) {
-      console.error("Delete task error:", err);
+    if (error) {
+      console.error("Delete task error:", error.message);
+      return;
     }
+
+    if (activeTask && activeTask.id === id) {
+      setActiveTask(null);
+    }
+
+    await refreshTasks();
   };
 
-  const saveEdit = async (id) => {
+  const toggleTask = async (task) => {
+    const { error } = await supabase
+      .from("tasks")
+      .update({ completed: !task.completed })
+      .eq("id", task.id);
+
+    if (error) {
+      console.error("Toggle task error:", error.message);
+      return;
+    }
+
+    await refreshTasks();
+  };
+
+  const startEditing = (index, text) => {
+    setEditingIndex(index);
+    setEditedText(text);
+  };
+
+  const saveEditedTask = async (id) => {
     if (!editedText.trim()) return;
 
-    try {
-      const currentTask = tasks.find((task) => task.id === id);
+    const { error } = await supabase
+      .from("tasks")
+      .update({ text: editedText.trim() })
+      .eq("id", id);
 
-      const { error } = await supabase
-        .from("tasks")
-        .update({ text: editedText.trim() })
-        .eq("id", id);
-
-      if (error) {
-        console.error("Edit task error:", error);
-        return;
-      }
-
-      if (activeTask === currentTask?.text) {
-        setActiveTask(editedText.trim());
-      }
-
-      setEditingIndex(null);
-      setEditedText("");
-      refreshTasks();
-    } catch (err) {
-      console.error("Edit task error:", err);
+    if (error) {
+      console.error("Edit task error:", error.message);
+      return;
     }
+
+    setEditingIndex(null);
+    setEditedText("");
+    await refreshTasks();
   };
 
-  const toggleTask = async (id, currentCompleted) => {
-    try {
-      const { error } = await supabase
-        .from("tasks")
-        .update({ completed: !currentCompleted })
-        .eq("id", id);
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
 
-      if (error) {
-        console.error("Toggle task error:", error);
-        return;
-      }
-
-      refreshTasks();
-    } catch (err) {
-      console.error("Toggle task error:", err);
+    if (error) {
+      console.error("Logout error:", error.message);
+      return;
     }
+
+    setActiveTask(null);
   };
+
+  if (loading) {
+    return (
+      <div style={{ padding: "30px", color: "white" }}>
+        Loading...
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
 
   return (
-    <div className="container">
-      <h1 className="title">FocusMate AI</h1>
+    <div className="app-container">
+      <h1>FocusMate AI</h1>
       <p className="subtitle">
         Stay focused. Organize tasks. Finish with clarity.
       </p>
 
-      {activeTask && (
-        <h3 className="active-task">
-          🎯 Now focusing: <strong>{activeTask}</strong>
-        </h3>
-      )}
-
-      <div className="timer-wrapper">
-        <Timer key={activeTask || "no-task"} activeTask={activeTask} />
-      </div>
-
-      <div className="input-group">
-        <input
-          className="input"
-          value={newTask}
-          onChange={(e) => setNewTask(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") addTask();
-          }}
-          placeholder="Enter a task"
-        />
-
-        <button
-          className="btn btn-add"
-          onClick={addTask}
-          disabled={!newTask.trim()}
-        >
-          Add
+      <div style={{ marginBottom: "20px", color: "white" }}>
+        <p>Welcome, {user.email}</p>
+        <button onClick={handleLogout} className="logout-btn">
+          Logout
         </button>
       </div>
 
-      {tasks.length === 0 ? (
-        <div className="empty-state">
-          No tasks yet. Add one and start your focus session.
-        </div>
-      ) : (
-        <ul className="task-list">
-          {tasks.map((task) => (
-            <li
-              key={task.id}
-              className={`task-item ${
-                activeTask === task.text ? "task-active" : ""
-              }`}
-              onClick={() => {
-                if (editingIndex !== task.id) {
-                  setActiveTask(task.text);
-                }
-              }}
-            >
-              <div className="task-left">
+      <Timer activeTask={activeTask} user={user} />
+
+      <div className="task-input-container">
+        <input
+          type="text"
+          placeholder="Enter a task"
+          value={newTask}
+          onChange={(e) => setNewTask(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              addTask();
+            }
+          }}
+        />
+        <button onClick={addTask}>Add</button>
+      </div>
+
+      <ul className="task-list">
+        {tasks.map((task, index) => (
+          <li key={task.id} className={task.completed ? "completed" : ""}>
+            {editingIndex === index ? (
+              <>
                 <input
-                  type="checkbox"
-                  checked={task.completed}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    toggleTask(task.id, task.completed);
-                  }}
+                  type="text"
+                  value={editedText}
+                  onChange={(e) => setEditedText(e.target.value)}
                 />
-
-                {editingIndex === task.id ? (
+                <button onClick={() => saveEditedTask(task.id)}>Save</button>
+              </>
+            ) : (
+              <>
+                <div className="task-left">
                   <input
-                    className="input"
-                    value={editedText}
-                    onChange={(e) => setEditedText(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
+                    type="checkbox"
+                    checked={task.completed}
+                    onChange={() => toggleTask(task)}
                   />
-                ) : (
-                  <span
-                    className={`task-text ${
-                      task.completed ? "task-completed" : ""
-                    }`}
-                  >
-                    {task.text}
-                  </span>
-                )}
-              </div>
+                  <span onClick={() => setActiveTask(task)}>{task.text}</span>
+                </div>
 
-              <div className="task-actions">
-                {editingIndex === task.id ? (
-                  <button
-                    className="icon-btn save-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      saveEdit(task.id);
-                    }}
-                  >
-                    💾
-                  </button>
-                ) : (
-                  <button
-                    className="icon-btn edit-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingIndex(task.id);
-                      setEditedText(task.text);
-                    }}
-                  >
+                <div className="task-actions">
+                  <button onClick={() => startEditing(index, task.text)}>
                     ✏️
                   </button>
-                )}
-
-                <button
-                  className="icon-btn delete-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteTask(task.id, task.text);
-                  }}
-                >
-                  ❌
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <p style={{ marginTop: "40px", opacity: 0.5 }}>
-        Built with ❤️ by Niragi
-      </p>
+                  <button onClick={() => deleteTask(task.id)}>❌</button>
+                </div>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
