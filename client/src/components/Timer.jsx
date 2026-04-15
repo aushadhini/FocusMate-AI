@@ -1,28 +1,13 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../supabase";
 
-function Timer({ activeTask, user }) {
-  const [secondsLeft, setSecondsLeft] = useState(25 * 60);
+function Timer({ activeTask, user, onSessionSaved }) {
+  const FOCUS_MINUTES = 25;
+  const FOCUS_SECONDS = FOCUS_MINUTES * 60;
+
+  const [secondsLeft, setSecondsLeft] = useState(FOCUS_SECONDS);
   const [isRunning, setIsRunning] = useState(false);
   const [sessions, setSessions] = useState(0);
-
-  const saveSession = useCallback(async () => {
-    if (!user) return;
-
-    const { error } = await supabase.from("sessions").insert([
-      {
-        user_id: user.id,
-      },
-    ]);
-
-    if (error) {
-      console.error("Save session error:", error.message);
-      return;
-    }
-
-    setSessions((prev) => prev + 1);
-    alert("Focus session completed! 🎉");
-  }, [user]);
 
   useEffect(() => {
     let ignore = false;
@@ -35,9 +20,9 @@ function Timer({ activeTask, user }) {
         return;
       }
 
-      const { data, error } = await supabase
+      const { count, error } = await supabase
         .from("sessions")
-        .select("*")
+        .select("*", { count: "exact", head: true })
         .eq("user_id", user.id);
 
       if (error) {
@@ -46,7 +31,7 @@ function Timer({ activeTask, user }) {
       }
 
       if (!ignore) {
-        setSessions(data?.length || 0);
+        setSessions(count || 0);
       }
     };
 
@@ -61,20 +46,46 @@ function Timer({ activeTask, user }) {
     if (!isRunning) return;
 
     const timer = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setIsRunning(false);
-          void saveSession();
-          return 0;
-        }
-
-        return prev - 1;
-      });
+      setSecondsLeft((prev) => prev - 1);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isRunning, saveSession]);
+  }, [isRunning]);
+
+  useEffect(() => {
+    if (secondsLeft > 0) return;
+    if (!isRunning) return;
+
+    const completeSession = async () => {
+      setIsRunning(false);
+
+      if (!user || !activeTask) return;
+
+      const { error } = await supabase.from("sessions").insert([
+        {
+          user_id: user.id,
+          task_id: activeTask.id,
+          task_text: activeTask.text,
+          duration_minutes: FOCUS_MINUTES,
+        },
+      ]);
+
+      if (error) {
+        console.error("Save session error:", error.message);
+        return;
+      }
+
+      setSessions((prev) => prev + 1);
+
+      if (onSessionSaved) {
+        onSessionSaved();
+      }
+
+      alert("Focus session completed! 🎉");
+    };
+
+    completeSession();
+  }, [secondsLeft, isRunning, user, activeTask, onSessionSaved]);
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
@@ -84,6 +95,11 @@ function Timer({ activeTask, user }) {
       alert("Please select a task first.");
       return;
     }
+
+    if (secondsLeft <= 0) {
+      setSecondsLeft(FOCUS_SECONDS);
+    }
+
     setIsRunning(true);
   };
 
@@ -93,7 +109,7 @@ function Timer({ activeTask, user }) {
 
   const resetTimer = () => {
     setIsRunning(false);
-    setSecondsLeft(25 * 60);
+    setSecondsLeft(FOCUS_SECONDS);
   };
 
   return (
@@ -113,7 +129,7 @@ function Timer({ activeTask, user }) {
 
       <p style={{ color: "#94a3b8", marginBottom: "6px" }}>
         {activeTask
-          ? `Working on: ${activeTask.text || activeTask}`
+          ? `Working on: ${activeTask.text}`
           : "Select a task to focus on"}
       </p>
 

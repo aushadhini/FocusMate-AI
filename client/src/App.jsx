@@ -12,6 +12,11 @@ function App() {
   const [editedText, setEditedText] = useState("");
   const [activeTask, setActiveTask] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    total: 0,
+    totalMinutes: 0,
+    today: 0,
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -32,7 +37,10 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
+      if (mounted) {
+        setSession(newSession);
+        setLoading(false);
+      }
     });
 
     return () => {
@@ -75,6 +83,66 @@ function App() {
     };
   }, [user]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchStats = async () => {
+      if (!user) {
+        if (!ignore) {
+          setStats({
+            total: 0,
+            totalMinutes: 0,
+            today: 0,
+          });
+        }
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Stats error:", error.message);
+        return;
+      }
+
+      const sessionsData = data || [];
+      const total = sessionsData.length;
+
+      const totalMinutes = sessionsData.reduce(
+        (sum, item) => sum + (item.duration_minutes || 0),
+        0
+      );
+
+      const now = new Date();
+
+      const today = sessionsData.filter((item) => {
+        const sessionDate = new Date(item.completed_at);
+        return (
+          sessionDate.getDate() === now.getDate() &&
+          sessionDate.getMonth() === now.getMonth() &&
+          sessionDate.getFullYear() === now.getFullYear()
+        );
+      }).length;
+
+      if (!ignore) {
+        setStats({
+          total,
+          totalMinutes,
+          today,
+        });
+      }
+    };
+
+    fetchStats();
+
+    return () => {
+      ignore = true;
+    };
+  }, [user]);
+
   const refreshTasks = async () => {
     if (!user) {
       setTasks([]);
@@ -87,12 +155,58 @@ function App() {
       .eq("user_id", user.id)
       .order("id", { ascending: true });
 
-      if (error) {
+    if (error) {
       console.error("Refresh tasks error:", error.message);
       return;
     }
 
     setTasks(data || []);
+  };
+
+  const refreshStats = async () => {
+    if (!user) {
+      setStats({
+        total: 0,
+        totalMinutes: 0,
+        today: 0,
+      });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Refresh stats error:", error.message);
+      return;
+    }
+
+    const sessionsData = data || [];
+    const total = sessionsData.length;
+
+    const totalMinutes = sessionsData.reduce(
+      (sum, item) => sum + (item.duration_minutes || 0),
+      0
+    );
+
+    const now = new Date();
+
+    const today = sessionsData.filter((item) => {
+      const sessionDate = new Date(item.completed_at);
+      return (
+        sessionDate.getDate() === now.getDate() &&
+        sessionDate.getMonth() === now.getMonth() &&
+        sessionDate.getFullYear() === now.getFullYear()
+      );
+    }).length;
+
+    setStats({
+      total,
+      totalMinutes,
+      today,
+    });
   };
 
   const addTask = async () => {
@@ -140,7 +254,7 @@ function App() {
       return;
     }
 
-    if (activeTask && activeTask.id === id) {
+    if (activeTask?.id === id) {
       setActiveTask(null);
     }
 
@@ -223,12 +337,23 @@ function App() {
         </button>
       </div>
 
+      <div className="stats-box">
+        <h3>📊 Your Stats</h3>
+        <p>Total Sessions: {stats.total}</p>
+        <p>Total Focus Time: {stats.totalMinutes} mins</p>
+        <p>Today Sessions: {stats.today}</p>
+      </div>
+
       {activeTask && (
         <p className="active-task">Working on: {activeTask.text}</p>
       )}
 
       <div className="timer-wrapper">
-        <Timer activeTask={activeTask} user={user} />
+        <Timer
+          activeTask={activeTask}
+          user={user}
+          onSessionSaved={refreshStats}
+        />
       </div>
 
       <div className="input-group">
