@@ -48,9 +48,7 @@ function App() {
 
     const loadTasks = async () => {
       if (!user) {
-        if (!ignore) {
-          setTasks([]);
-        }
+        if (!ignore) setTasks([]);
         return;
       }
 
@@ -89,7 +87,7 @@ function App() {
       .eq("user_id", user.id)
       .order("id", { ascending: true });
 
-    if (error) {
+      if (error) {
       console.error("Refresh tasks error:", error.message);
       return;
     }
@@ -115,6 +113,23 @@ function App() {
 
     setNewTask("");
     await refreshTasks();
+  };
+
+  const generateTasks = () => {
+    const suggestions = [
+      "Complete one coding exercise",
+      "Review today's lecture notes",
+      "Spend 25 minutes on FocusMate AI",
+      "Fix one UI issue in the app",
+      "Read about Supabase auth",
+      "Practice JavaScript array methods",
+      "Plan tomorrow's top 3 tasks",
+    ];
+
+    const randomTask =
+      suggestions[Math.floor(Math.random() * suggestions.length)];
+
+    setNewTask(randomTask);
   };
 
   const deleteTask = async (id) => {
@@ -182,8 +197,8 @@ function App() {
 
   if (loading) {
     return (
-      <div style={{ padding: "30px", color: "white" }}>
-        Loading...
+      <div className="container">
+        <h1 className="title">Loading...</h1>
       </div>
     );
   }
@@ -193,24 +208,33 @@ function App() {
   }
 
   return (
-    <div className="app-container">
-      <h1>FocusMate AI</h1>
+    <div className="container">
+      <h1 className="title">FocusMate AI</h1>
       <p className="subtitle">
         Stay focused. Organize tasks. Finish with clarity.
       </p>
 
-      <div style={{ marginBottom: "20px", color: "white" }}>
-        <p>Welcome, {user.email}</p>
+      <div style={{ marginBottom: "20px", textAlign: "center" }}>
+        <h2 style={{ marginBottom: "10px" }}>
+          Hi {user.email.split("@")[0]} 👋
+        </h2>
         <button onClick={handleLogout} className="logout-btn">
           Logout
         </button>
       </div>
 
-      <Timer activeTask={activeTask} user={user} />
+      {activeTask && (
+        <p className="active-task">Working on: {activeTask.text}</p>
+      )}
 
-      <div className="task-input-container">
+      <div className="timer-wrapper">
+        <Timer activeTask={activeTask} user={user} />
+      </div>
+
+      <div className="input-group">
         <input
           type="text"
+          className="input"
           placeholder="Enter a task"
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
@@ -220,20 +244,60 @@ function App() {
             }
           }}
         />
-        <button onClick={addTask}>Add</button>
+        <button onClick={addTask} className="btn btn-add">
+          Add
+        </button>
       </div>
+
+      <button
+        onClick={generateTasks}
+        className="btn"
+        style={{
+          marginBottom: "20px",
+          background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+        }}
+      >
+        ✨ Suggest Tasks
+      </button>
+
+      {tasks.length === 0 && (
+        <div className="empty-state">
+          No tasks yet. Add one and start your focus session 🚀
+        </div>
+      )}
 
       <ul className="task-list">
         {tasks.map((task, index) => (
-          <li key={task.id} className={task.completed ? "completed" : ""}>
+          <li
+            key={task.id}
+            className={`task-item ${
+              activeTask?.id === task.id ? "task-active" : ""
+            }`}
+            onClick={() => setActiveTask(task)}
+          >
             {editingIndex === index ? (
               <>
-                <input
-                  type="text"
-                  value={editedText}
-                  onChange={(e) => setEditedText(e.target.value)}
-                />
-                <button onClick={() => saveEditedTask(task.id)}>Save</button>
+                <div className="task-left">
+                  <input
+                    type="text"
+                    className="input"
+                    value={editedText}
+                    onChange={(e) => setEditedText(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+
+                <div className="task-actions">
+                  <button
+                    className="icon-btn save-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      saveEditedTask(task.id);
+                    }}
+                  >
+                    💾
+                  </button>
+                </div>
               </>
             ) : (
               <>
@@ -241,16 +305,40 @@ function App() {
                   <input
                     type="checkbox"
                     checked={task.completed}
-                    onChange={() => toggleTask(task)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      toggleTask(task);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
                   />
-                  <span onClick={() => setActiveTask(task)}>{task.text}</span>
+                  <span
+                    className={`task-text ${
+                      task.completed ? "task-completed" : ""
+                    }`}
+                  >
+                    {task.text}
+                  </span>
                 </div>
 
                 <div className="task-actions">
-                  <button onClick={() => startEditing(index, task.text)}>
+                  <button
+                    className="icon-btn edit-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEditing(index, task.text);
+                    }}
+                  >
                     ✏️
                   </button>
-                  <button onClick={() => deleteTask(task.id)}>❌</button>
+                  <button
+                    className="icon-btn delete-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteTask(task.id);
+                    }}
+                  >
+                    ❌
+                  </button>
                 </div>
               </>
             )}
