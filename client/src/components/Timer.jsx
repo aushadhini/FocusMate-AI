@@ -1,13 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 
-function Timer({ activeTask, user, onSessionSaved }) {
-  const FOCUS_MINUTES = 1;
-  const FOCUS_SECONDS = 10;
+const TIMER_MODES = {
+  focus: { label: "Focus", minutes: 25 },
+  shortBreak: { label: "Short Break", minutes: 5 },
+  longBreak: { label: "Long Break", minutes: 15 },
+};
 
-  const [secondsLeft, setSecondsLeft] = useState(FOCUS_SECONDS);
+function Timer({ activeTask, user, onSessionSaved }) {
+  const [mode, setMode] = useState("focus");
+  const [secondsLeft, setSecondsLeft] = useState(
+    TIMER_MODES.focus.minutes * 60
+  );
   const [isRunning, setIsRunning] = useState(false);
   const [sessions, setSessions] = useState(0);
+
+  const totalSeconds = useMemo(() => {
+    return TIMER_MODES[mode].minutes * 60;
+  }, [mode]);
 
   useEffect(() => {
     let ignore = false;
@@ -59,7 +69,6 @@ function Timer({ activeTask, user, onSessionSaved }) {
     const completeSession = async () => {
       setIsRunning(false);
 
-      // play sound
       try {
         const audio = new Audio(
           "data:audio/wav;base64,UklGRlQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YTAAAAAAAP//AAD//wAA//8AAP//AAD//wAA"
@@ -69,55 +78,56 @@ function Timer({ activeTask, user, onSessionSaved }) {
         console.log("Audio play blocked:", error);
       }
 
-      // browser notification
-      if ("Notification" in window) {
-        if (Notification.permission === "granted") {
-          new Notification("Focus session completed!", {
-            body: activeTask
-              ? `Great job! You finished: ${activeTask.text}`
-              : "Great job! Your focus session is done.",
-          });
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(`${TIMER_MODES[mode].label} completed!`, {
+          body:
+            mode === "focus"
+              ? activeTask
+                ? `Great job! You finished: ${activeTask.text}`
+                : "Great job! Your focus session is done."
+              : "Your break session is complete.",
+        });
+      }
+
+      if (mode === "focus" && user && activeTask) {
+        const { error } = await supabase.from("sessions").insert([
+          {
+            user_id: user.id,
+            duration_minutes: TIMER_MODES.focus.minutes,
+          },
+        ]);
+
+        if (error) {
+          console.error("Save session error:", error.message);
+          alert("Session finished, but saving failed.");
+          setSecondsLeft(totalSeconds);
+          return;
+        }
+
+        setSessions((prev) => prev + 1);
+
+        if (onSessionSaved) {
+          onSessionSaved();
         }
       }
 
-      if (!user || !activeTask) {
-        alert("Focus session completed!");
-        setSecondsLeft(FOCUS_SECONDS);
-        return;
+      alert(`${TIMER_MODES[mode].label} completed!`);
+
+      if (mode === "focus") {
+        setMode("shortBreak");
+        setSecondsLeft(TIMER_MODES.shortBreak.minutes * 60);
+      } else {
+        setSecondsLeft(totalSeconds);
       }
-
-      const { error } = await supabase.from("sessions").insert([
-        {
-          user_id: user.id,
-          duration_minutes: FOCUS_MINUTES,
-        },
-      ]);
-
-      if (error) {
-        console.error("Save session error:", error.message);
-        alert("Session finished, but saving failed.");
-        setSecondsLeft(FOCUS_SECONDS);
-        return;
-      }
-
-      setSessions((prev) => prev + 1);
-
-      if (onSessionSaved) {
-        onSessionSaved();
-      }
-
-      alert("Focus session completed!");
-      setSecondsLeft(FOCUS_SECONDS);
     };
 
     completeSession();
-  }, [secondsLeft, isRunning, user, activeTask, onSessionSaved, FOCUS_SECONDS]);
+  }, [secondsLeft, isRunning, mode, user, activeTask, onSessionSaved, totalSeconds]);
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
 
-  const progressPercent =
-    ((FOCUS_SECONDS - secondsLeft) / FOCUS_SECONDS) * 100;
+  const progressPercent = ((totalSeconds - secondsLeft) / totalSeconds) * 100;
 
   const requestNotificationPermission = async () => {
     if (!("Notification" in window)) return;
@@ -132,13 +142,13 @@ function Timer({ activeTask, user, onSessionSaved }) {
   };
 
   const startTimer = async () => {
-    if (!activeTask) {
+    if (mode === "focus" && !activeTask) {
       alert("Please select a task first.");
       return;
     }
 
     if (secondsLeft <= 0) {
-      setSecondsLeft(FOCUS_SECONDS);
+      setSecondsLeft(totalSeconds);
     }
 
     await requestNotificationPermission();
@@ -151,102 +161,74 @@ function Timer({ activeTask, user, onSessionSaved }) {
 
   const resetTimer = () => {
     setIsRunning(false);
-    setSecondsLeft(FOCUS_SECONDS);
+    setSecondsLeft(totalSeconds);
+  };
+
+  const switchMode = (nextMode) => {
+    setIsRunning(false);
+    setMode(nextMode);
+    setSecondsLeft(TIMER_MODES[nextMode].minutes * 60);
   };
 
   return (
-    <div
-      style={{
-        background: "#ffffff",
-        padding: "24px",
-        borderRadius: "20px",
-        boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-        marginTop: "24px",
-      }}
-    >
-      <h2 style={{ marginBottom: "10px" }}>⏱ Focus Timer</h2>
+    <div className="timer-card">
+      <h2 className="timer-title">⏱ Focus Timer</h2>
 
-      <p style={{ marginBottom: "8px", color: "#555" }}>
-        {activeTask
-          ? `Working on: ${activeTask.text}`
-          : "Select a task to focus on"}
+      <div className="timer-modes">
+        <button
+          className={`timer-mode-btn ${mode === "focus" ? "timer-mode-active" : ""}`}
+          onClick={() => switchMode("focus")}
+        >
+          Focus
+        </button>
+
+        <button
+          className={`timer-mode-btn ${mode === "shortBreak" ? "timer-mode-active" : ""}`}
+          onClick={() => switchMode("shortBreak")}
+        >
+          Short Break
+        </button>
+
+        <button
+          className={`timer-mode-btn ${mode === "longBreak" ? "timer-mode-active" : ""}`}
+          onClick={() => switchMode("longBreak")}
+        >
+          Long Break
+        </button>
+      </div>
+
+      <p className="timer-task-text">
+        {mode === "focus"
+          ? activeTask
+            ? `Working on: ${activeTask.text}`
+            : "Select a task to focus on"
+          : "Take a break and recharge"}
       </p>
 
-      <p style={{ marginBottom: "20px", fontWeight: "600" }}>
-        Sessions completed: {sessions}
-      </p>
+      <p className="timer-session-count">Sessions completed: {sessions}</p>
 
-      <div
-        style={{
-          width: "100%",
-          height: "14px",
-          background: "#e5e7eb",
-          borderRadius: "999px",
-          overflow: "hidden",
-          marginBottom: "18px",
-        }}
-      >
+      <div className="timer-progress-track">
         <div
-          style={{
-            width: `${progressPercent}%`,
-            height: "100%",
-            background: "#6366f1",
-            transition: "width 1s linear",
-          }}
+          className="timer-progress-fill"
+          style={{ width: `${progressPercent}%` }}
         />
       </div>
 
-      <h1
-        style={{
-          fontSize: "48px",
-          marginBottom: "20px",
-          color: "#111827",
-        }}
-      >
+      <h1 className="timer-time">
         {String(minutes).padStart(2, "0")}:
         {String(seconds).padStart(2, "0")}
       </h1>
 
-      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-        <button
-          onClick={startTimer}
-          style={{
-            padding: "10px 18px",
-            borderRadius: "10px",
-            border: "none",
-            background: "#4f46e5",
-            color: "white",
-            cursor: "pointer",
-          }}
-        >
+      <div className="timer-actions">
+        <button className="timer-btn start-btn" onClick={startTimer}>
           Start
         </button>
 
-        <button
-          onClick={pauseTimer}
-          style={{
-            padding: "10px 18px",
-            borderRadius: "10px",
-            border: "none",
-            background: "#f59e0b",
-            color: "white",
-            cursor: "pointer",
-          }}
-        >
+        <button className="timer-btn pause-btn" onClick={pauseTimer}>
           Pause
         </button>
 
-        <button
-          onClick={resetTimer}
-          style={{
-            padding: "10px 18px",
-            borderRadius: "10px",
-            border: "none",
-            background: "#ef4444",
-            color: "white",
-            cursor: "pointer",
-          }}
-        >
+        <button className="timer-btn reset-btn" onClick={resetTimer}>
           Reset
         </button>
       </div>

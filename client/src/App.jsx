@@ -1,10 +1,12 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import "./App.css";
 import Timer from "./components/Timer";
 import { supabase } from "./supabase";
 import Auth from "./Auth";
+
+const DAILY_GOAL = 4;
 
 const emptyStats = {
   totalSessions: 0,
@@ -111,6 +113,42 @@ function App() {
     return days;
   };
 
+  const calculateStreak = (sessionsData) => {
+    if (!sessionsData || sessionsData.length === 0) return 0;
+
+    const uniqueDays = Array.from(
+      new Set(
+        sessionsData
+          .filter((item) => item.completed_at)
+          .map((item) => getLocalDateKey(item.completed_at))
+      )
+    ).sort((a, b) => new Date(b) - new Date(a));
+
+    if (uniqueDays.length === 0) return 0;
+
+    let streak = 1;
+
+    for (let i = 0; i < uniqueDays.length - 1; i++) {
+      const current = new Date(uniqueDays[i]);
+      const next = new Date(uniqueDays[i + 1]);
+
+      current.setHours(0, 0, 0, 0);
+      next.setHours(0, 0, 0, 0);
+
+      const diffInDays = Math.round(
+        (current.getTime() - next.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      if (diffInDays === 1) {
+        streak += 1;
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  };
+
   const fetchTasks = useCallback(async (currentUserId) => {
     const { data, error } = await supabase
       .from("tasks")
@@ -125,32 +163,6 @@ function App() {
 
     setTasks(data || []);
   }, []);
-
-  const calculateStreak = (sessionsData) => {
-    if (!sessionsData || sessionsData.length === 0) return 0;
-
-    const uniqueDays = new Set(
-      sessionsData
-        .filter((item) => item.completed_at)
-        .map((item) => getLocalDateKey(item.completed_at))
-    );
-
-    let streak = 0;
-    const currentDate = new Date();
-
-    while (true) {
-      const currentKey = getLocalDateKey(currentDate);
-
-      if (uniqueDays.has(currentKey)) {
-        streak += 1;
-        currentDate.setDate(currentDate.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-
-    return streak;
-  };
 
   const fetchStats = useCallback(async (currentUserId) => {
     const { data, error } = await supabase
@@ -207,7 +219,7 @@ function App() {
       .from("tasks")
       .insert([
         {
-          text: newTask,
+          text: newTask.trim(),
           completed: false,
           user_id: session.user.id,
         },
@@ -254,6 +266,13 @@ function App() {
         task.id === id ? { ...task, completed: !completed } : task
       )
     );
+
+    if (activeTask?.id === id) {
+      setActiveTask((prev) => ({
+        ...prev,
+        completed: !completed,
+      }));
+    }
   };
 
   const startEdit = (index, text) => {
@@ -264,9 +283,11 @@ function App() {
   const saveEdit = async (id) => {
     if (!editedText.trim()) return;
 
+    const trimmedText = editedText.trim();
+
     const { error } = await supabase
       .from("tasks")
-      .update({ text: editedText })
+      .update({ text: trimmedText })
       .eq("id", id);
 
     if (error) {
@@ -276,12 +297,12 @@ function App() {
 
     setTasks((prev) =>
       prev.map((task) =>
-        task.id === id ? { ...task, text: editedText } : task
+        task.id === id ? { ...task, text: trimmedText } : task
       )
     );
 
     if (activeTask?.id === id) {
-      setActiveTask((prev) => ({ ...prev, text: editedText }));
+      setActiveTask((prev) => ({ ...prev, text: trimmedText }));
     }
 
     setEditingIndex(null);
@@ -303,6 +324,10 @@ function App() {
     setNewTask(randomTask);
   };
 
+  const goalPercent = useMemo(() => {
+    return Math.min((stats.todaySessions / DAILY_GOAL) * 100, 100);
+  }, [stats.todaySessions]);
+
   if (loading) {
     return (
       <h2 style={{ textAlign: "center", marginTop: "50px" }}>Loading...</h2>
@@ -320,55 +345,96 @@ function App() {
 
   return (
     <div className="app-container">
-      <h1>🔥 FocusMate AI</h1>
+      <div className="top-bar">
+        <h1>🔥 FocusMate AI</h1>
+        <button className="logout-btn" onClick={() => supabase.auth.signOut()}>
+          Logout
+        </button>
+      </div>
 
-      <div className="stats-box">
-        <div className="stat-card">
-          <h3>Total Sessions</h3>
-          <p>{stats.totalSessions}</p>
+      <div className="goal-card">
+        <div className="goal-header">
+          <h2>🎯 Daily Goal</h2>
+          <span>
+            {stats.todaySessions}/{DAILY_GOAL} sessions
+          </span>
         </div>
 
-        <div className="stat-card">
-          <h3>Total Focus Minutes</h3>
-          <p>{stats.totalMinutes}</p>
+        <div className="goal-progress-track">
+          <div
+            className="goal-progress-fill"
+            style={{ width: `${goalPercent}%` }}
+          />
         </div>
 
-        <div className="stat-card">
-          <h3>Today</h3>
-          <p>{stats.todaySessions}</p>
+        <p className="goal-text">
+          {stats.todaySessions >= DAILY_GOAL
+            ? "Amazing! You reached today’s focus goal."
+            : `${DAILY_GOAL - stats.todaySessions} more session${
+                DAILY_GOAL - stats.todaySessions !== 1 ? "s" : ""
+              } to reach your goal.`}
+        </p>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stats-box">
+          <div className="stat-card">
+            <h3>Total Sessions</h3>
+            <p>{stats.totalSessions}</p>
+          </div>
         </div>
 
-        <div className="stat-card">
-          <h3>Current Streak</h3>
-          <p>
-            🔥 {stats.streak} day{stats.streak !== 1 ? "s" : ""}
-          </p>
+        <div className="stats-box">
+          <div className="stat-card">
+            <h3>Total Focus Minutes</h3>
+            <p>{stats.totalMinutes}</p>
+          </div>
+        </div>
+
+        <div className="stats-box">
+          <div className="stat-card">
+            <h3>Today</h3>
+            <p>{stats.todaySessions}</p>
+          </div>
+        </div>
+
+        <div className="stats-box">
+          <div className="stat-card">
+            <h3>Current Streak</h3>
+            <p>
+              🔥 {stats.streak} day{stats.streak !== 1 ? "s" : ""}
+            </p>
+          </div>
         </div>
       </div>
 
       <div className="chart-card">
         <h2>📊 Last 7 Days</h2>
-        <div className="chart-grid">
-          {weeklyChartData.map((item) => (
-            <div key={item.fullDate} className="chart-bar-group">
-              <span className="chart-value">{item.sessions}</span>
-              <div className="chart-bar-track">
-                <div
-                  className="chart-bar-fill"
-                  style={{
-                    height: `${(item.sessions / maxSessions) * 180}px`,
-                  }}
-                />
-              </div>
-              <span className="chart-label">{item.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      <button className="logout-btn" onClick={() => supabase.auth.signOut()}>
-        Logout
-      </button>
+        {stats.totalSessions === 0 ? (
+          <div className="empty-state">
+            No focus sessions yet. Complete your first session to see activity
+            here.
+          </div>
+        ) : (
+          <div className="chart-grid">
+            {weeklyChartData.map((item) => (
+              <div key={item.fullDate} className="chart-bar-group">
+                <span className="chart-value">{item.sessions}</span>
+                <div className="chart-bar-track">
+                  <div
+                    className="chart-bar-fill"
+                    style={{
+                      height: `${(item.sessions / maxSessions) * 180}px`,
+                    }}
+                  />
+                </div>
+                <span className="chart-label">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <Timer
         activeTask={activeTask}
@@ -382,6 +448,9 @@ function App() {
           placeholder="Enter a task"
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") addTask();
+          }}
         />
         <button onClick={addTask}>Add</button>
       </div>
@@ -390,67 +459,88 @@ function App() {
         ✨ Suggest Tasks
       </button>
 
-      <ul className="task-list">
-        {tasks.map((task, index) => (
-          <li
-            key={task.id}
-            className={activeTask?.id === task.id ? "active-task" : ""}
-            onClick={() => setActiveTask(task)}
-          >
-            {editingIndex === index ? (
-              <>
-                <input
-                  value={editedText}
-                  onChange={(e) => setEditedText(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    saveEdit(task.id);
-                  }}
-                >
-                  Save
-                </button>
-              </>
-            ) : (
-              <>
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleTask(task.id, task.completed);
-                  }}
-                  style={{
-                    textDecoration: task.completed ? "line-through" : "none",
-                    flex: 1,
-                    cursor: "pointer",
-                  }}
-                >
-                  {task.text}
-                </span>
+      {tasks.length === 0 ? (
+        <div className="empty-state">
+          No tasks yet. Add a task and select it before starting your focus
+          timer.
+        </div>
+      ) : (
+        <ul className="task-list">
+          {tasks.map((task, index) => (
+            <li
+              key={task.id}
+              className={`task-item ${activeTask?.id === task.id ? "task-active" : ""}`}
+              onClick={() => setActiveTask(task)}
+            >
+              {editingIndex === index ? (
+                <>
+                  <input
+                    className="input"
+                    value={editedText}
+                    onChange={(e) => setEditedText(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="task-actions">
+                    <button
+                      className="icon-btn save-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        saveEdit(task.id);
+                      }}
+                    >
+                      ✓
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="task-left">
+                    <input
+                      type="checkbox"
+                      checked={task.completed}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleTask(task.id, task.completed);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    startEdit(index, task.text);
-                  }}
-                >
-                  ✏️
-                </button>
+                    <span
+                      className={`task-text ${
+                        task.completed ? "task-completed" : ""
+                      }`}
+                    >
+                      {task.text}
+                    </span>
+                  </div>
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteTask(task.id);
-                  }}
-                >
-                  ❌
-                </button>
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
+                  <div className="task-actions">
+                    <button
+                      className="icon-btn edit-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEdit(index, task.text);
+                      }}
+                    >
+                      ✏️
+                    </button>
+
+                    <button
+                      className="icon-btn delete-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteTask(task.id);
+                      }}
+                    >
+                      ❌
+                    </button>
+                  </div>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
