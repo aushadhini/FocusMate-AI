@@ -19,6 +19,17 @@ function Timer({ activeTask, user, onSessionSaved }) {
     return TIMER_MODES[mode].minutes * 60;
   }, [mode]);
 
+  const progressPercent = ((totalSeconds - secondsLeft) / totalSeconds) * 100;
+
+  const circle = {
+    size: 248,
+    stroke: 12,
+  };
+
+  const radius = (circle.size - circle.stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference - (progressPercent / 100) * circumference;
+
   useEffect(() => {
     let ignore = false;
 
@@ -127,8 +138,6 @@ function Timer({ activeTask, user, onSessionSaved }) {
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
 
-  const progressPercent = ((totalSeconds - secondsLeft) / totalSeconds) * 100;
-
   const requestNotificationPermission = async () => {
     if (!("Notification" in window)) return;
 
@@ -171,8 +180,23 @@ function Timer({ activeTask, user, onSessionSaved }) {
   };
 
   return (
-    <div className="timer-card">
-      <h2 className="timer-title">⏱ Focus Timer</h2>
+    <div className={`timer-card premium-timer-card ${isRunning ? "timer-running" : ""}`}>
+      <div className="timer-top-row">
+        <div className="timer-heading-block">
+          <div className="timer-pill">Deep Work</div>
+          <h2 className="timer-title">⏱ Focus Timer</h2>
+          <p className="timer-subtitle">
+            {mode === "focus"
+              ? "Choose one task and work with full attention."
+              : "Pause, breathe, and get ready for the next round."}
+          </p>
+        </div>
+
+        <div className="timer-session-bubble">
+          <span>Completed</span>
+          <strong>{sessions}</strong>
+        </div>
+      </div>
 
       <div className="timer-modes">
         <button
@@ -197,27 +221,76 @@ function Timer({ activeTask, user, onSessionSaved }) {
         </button>
       </div>
 
-      <p className="timer-task-text">
-        {mode === "focus"
-          ? activeTask
-            ? `Working on: ${activeTask.text}`
-            : "Select a task to focus on"
-          : "Take a break and recharge"}
-      </p>
-
-      <p className="timer-session-count">Sessions completed: {sessions}</p>
-
-      <div className="timer-progress-track">
-        <div
-          className="timer-progress-fill"
-          style={{ width: `${progressPercent}%` }}
-        />
+      <div className="timer-focus-banner">
+        <span className="timer-focus-label">
+          {mode === "focus" ? "Current Focus" : "Current Mode"}
+        </span>
+        <strong>
+          {mode === "focus"
+            ? activeTask
+              ? activeTask.text
+              : "Select a task to start focusing"
+            : TIMER_MODES[mode].label}
+        </strong>
       </div>
 
-      <h1 className="timer-time">
-        {String(minutes).padStart(2, "0")}:
-        {String(seconds).padStart(2, "0")}
-      </h1>
+      <div className="timer-center-layout">
+        <div className="timer-ring-wrap">
+          <svg
+            className="timer-ring"
+            width={circle.size}
+            height={circle.size}
+            viewBox={`0 0 ${circle.size} ${circle.size}`}
+          >
+            <circle
+              className="timer-ring-track"
+              cx={circle.size / 2}
+              cy={circle.size / 2}
+              r={radius}
+              strokeWidth={circle.stroke}
+              fill="none"
+            />
+            <circle
+              className="timer-ring-progress"
+              cx={circle.size / 2}
+              cy={circle.size / 2}
+              r={radius}
+              strokeWidth={circle.stroke}
+              fill="none"
+              strokeDasharray={circumference}
+              strokeDashoffset={dashOffset}
+            />
+          </svg>
+
+          <div className="timer-ring-content">
+            <span className="timer-mode-text">{TIMER_MODES[mode].label}</span>
+            <h1 className="timer-time">
+              {String(minutes).padStart(2, "0")}:
+              {String(seconds).padStart(2, "0")}
+            </h1>
+            <span className="timer-progress-text">
+              {Math.round(progressPercent)}% complete
+            </span>
+          </div>
+        </div>
+
+        <div className="timer-side-panel">
+          <div className="timer-side-card">
+            <span>Status</span>
+            <strong>{isRunning ? "Running" : "Ready"}</strong>
+          </div>
+
+          <div className="timer-side-card">
+            <span>Session Length</span>
+            <strong>{TIMER_MODES[mode].minutes} min</strong>
+          </div>
+
+          <div className="timer-side-card">
+            <span>Mode</span>
+            <strong>{TIMER_MODES[mode].label}</strong>
+          </div>
+        </div>
+      </div>
 
       <div className="timer-actions">
         <button className="timer-btn start-btn" onClick={startTimer}>
