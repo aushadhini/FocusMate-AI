@@ -28,6 +28,13 @@ function App() {
   const [weeklyChartData, setWeeklyChartData] = useState([]);
   const [filter, setFilter] = useState("all");
   const [recentSessions, setRecentSessions] = useState([]);
+  const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
+
+  useEffect(() => {
+    document.body.classList.remove("light", "dark");
+    document.body.classList.add(theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     let mounted = true;
@@ -435,11 +442,26 @@ function App() {
           </div>
 
           <div className="hero-right">
+            <button
+              className="theme-toggle-btn"
+              onClick={() =>
+                setTheme((prevTheme) =>
+                  prevTheme === "dark" ? "light" : "dark"
+                )
+              }
+            >
+              {theme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+            </button>
+
             <div className="hero-mini-card">
               <span>Today</span>
               <strong>{stats.todaySessions} sessions</strong>
             </div>
-            <button className="logout-btn" onClick={() => supabase.auth.signOut()}>
+
+            <button
+              className="logout-btn"
+              onClick={() => supabase.auth.signOut()}
+            >
               Logout
             </button>
           </div>
@@ -466,8 +488,8 @@ function App() {
 
               {stats.totalSessions === 0 ? (
                 <div className="empty-state">
-                  No focus sessions yet. Complete your first session to see activity
-                  here.
+                  No focus sessions yet. Complete your first session to see
+                  activity here.
                 </div>
               ) : (
                 <div className="chart-grid">
@@ -565,7 +587,9 @@ function App() {
                   {recentSessions.map((sessionItem) => (
                     <div key={sessionItem.id} className="recent-session-item">
                       <div>
-                        <strong>{sessionItem.duration_minutes || 0} min focus</strong>
+                        <strong>
+                          {sessionItem.duration_minutes || 0} min focus
+                        </strong>
                         <p>{formatSessionDate(sessionItem.completed_at)}</p>
                       </div>
                       <span className="recent-session-badge">Completed</span>
@@ -618,7 +642,10 @@ function App() {
                   </select>
                 </div>
 
-                <button className="suggest-btn small-suggest-btn" onClick={suggestTask}>
+                <button
+                  className="suggest-btn small-suggest-btn"
+                  onClick={suggestTask}
+                >
                   ✨ Suggest
                 </button>
               </div>
@@ -626,19 +653,25 @@ function App() {
 
             <div className="filter-tabs">
               <button
-                className={`filter-tab ${filter === "all" ? "filter-tab-active" : ""}`}
+                className={`filter-tab ${
+                  filter === "all" ? "filter-tab-active" : ""
+                }`}
                 onClick={() => setFilter("all")}
               >
                 All ({tasks.length})
               </button>
               <button
-                className={`filter-tab ${filter === "active" ? "filter-tab-active" : ""}`}
+                className={`filter-tab ${
+                  filter === "active" ? "filter-tab-active" : ""
+                }`}
                 onClick={() => setFilter("active")}
               >
                 Active ({activeCount})
               </button>
               <button
-                className={`filter-tab ${filter === "completed" ? "filter-tab-active" : ""}`}
+                className={`filter-tab ${
+                  filter === "completed" ? "filter-tab-active" : ""
+                }`}
                 onClick={() => setFilter("completed")}
               >
                 Completed ({completedCount})
@@ -648,14 +681,19 @@ function App() {
 
           {tasks.length === 0 ? (
             <div className="empty-state large-empty-state">
-              No tasks yet. Add a task and select it before starting your focus timer.
+              No tasks yet. Add a task and select it before starting your focus
+              timer.
             </div>
           ) : filteredTasks.length === 0 ? (
-            <div className="empty-state large-empty-state">No tasks in this filter yet.</div>
+            <div className="empty-state large-empty-state">
+              No tasks in this filter yet.
+            </div>
           ) : (
             <ul className="task-list modern-task-list">
               {filteredTasks.map((task) => {
-                const originalIndex = tasks.findIndex((item) => item.id === task.id);
+                const originalIndex = tasks.findIndex(
+                  (item) => item.id === task.id
+                );
 
                 return (
                   <li
@@ -717,7 +755,9 @@ function App() {
                               </span>
 
                               {activeTask?.id === task.id && (
-                                <span className="task-status-chip">In Focus</span>
+                                <span className="task-status-chip">
+                                  In Focus
+                                </span>
                               )}
 
                               {task.completed && (
