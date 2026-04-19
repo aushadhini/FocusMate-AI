@@ -22,8 +22,8 @@ function Timer({ activeTask, user, onSessionSaved }) {
   const progressPercent = ((totalSeconds - secondsLeft) / totalSeconds) * 100;
 
   const circle = {
-    size: 248,
-    stroke: 12,
+    size: 252,
+    stroke: 14,
   };
 
   const radius = (circle.size - circle.stroke) / 2;
@@ -183,12 +183,12 @@ function Timer({ activeTask, user, onSessionSaved }) {
     <div className={`timer-card premium-timer-card ${isRunning ? "timer-running" : ""}`}>
       <div className="timer-top-row">
         <div className="timer-heading-block">
-          <div className="timer-pill">Deep Work</div>
-          <h2 className="timer-title">⏱ Focus Timer</h2>
+          <div className="timer-pill">Deep Work Mode</div>
+          <h2 className="timer-title">Focus Timer</h2>
           <p className="timer-subtitle">
             {mode === "focus"
-              ? "Choose one task and work with full attention."
-              : "Pause, breathe, and get ready for the next round."}
+              ? "Pick one task and work without distractions."
+              : "Reset your mind and prepare for the next session."}
           </p>
         </div>
 
@@ -229,7 +229,7 @@ function Timer({ activeTask, user, onSessionSaved }) {
           {mode === "focus"
             ? activeTask
               ? activeTask.text
-              : "Select a task to start focusing"
+              : "Select a task to begin your session"
             : TIMER_MODES[mode].label}
         </strong>
       </div>
@@ -242,6 +242,13 @@ function Timer({ activeTask, user, onSessionSaved }) {
             height={circle.size}
             viewBox={`0 0 ${circle.size} ${circle.size}`}
           >
+            <defs>
+              <linearGradient id="focusGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="var(--accent-2)" />
+                <stop offset="100%" stopColor="var(--accent-1)" />
+              </linearGradient>
+            </defs>
+
             <circle
               className="timer-ring-track"
               cx={circle.size / 2}
@@ -259,6 +266,7 @@ function Timer({ activeTask, user, onSessionSaved }) {
               fill="none"
               strokeDasharray={circumference}
               strokeDashoffset={dashOffset}
+              stroke="url(#focusGradient)"
             />
           </svg>
 
@@ -281,7 +289,7 @@ function Timer({ activeTask, user, onSessionSaved }) {
           </div>
 
           <div className="timer-side-card">
-            <span>Session Length</span>
+            <span>Length</span>
             <strong>{TIMER_MODES[mode].minutes} min</strong>
           </div>
 

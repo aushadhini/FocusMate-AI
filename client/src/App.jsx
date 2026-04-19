@@ -28,7 +28,7 @@ function App() {
   const [weeklyChartData, setWeeklyChartData] = useState([]);
   const [filter, setFilter] = useState("all");
   const [recentSessions, setRecentSessions] = useState([]);
-  const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
+  const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
 
   useEffect(() => {
     document.body.classList.remove("light", "dark");
@@ -362,11 +362,12 @@ function App() {
 
   const suggestTask = () => {
     const suggestions = [
-      "Read for 20 minutes",
+      "Review lecture notes for 25 minutes",
+      "Build one FocusMate UI improvement",
       "Practice JavaScript array methods",
-      "Write project notes",
-      "Revise React hooks",
-      "Spend 25 minutes on FocusMate AI",
+      "Write project documentation",
+      "Revise React hooks and state",
+      "Organize tomorrow's study plan",
     ];
 
     const randomTask =
@@ -416,9 +417,16 @@ function App() {
 
   const userEmail = session?.user?.email || "Focused user";
 
+  const focusScore = Math.min(
+    Math.round(stats.totalSessions * 3 + stats.streak * 8 + stats.todaySessions * 12),
+    100
+  );
+
   if (loading) {
     return (
-      <h2 style={{ textAlign: "center", marginTop: "50px" }}>Loading...</h2>
+      <div className="loading-screen">
+        <div className="loading-card">Loading your workspace...</div>
+      </div>
     );
   }
 
@@ -436,9 +444,23 @@ function App() {
       <div className="app-container">
         <div className="hero-card">
           <div className="hero-left">
-            <div className="hero-badge">⚡ Stay Consistent</div>
-            <h1>{getGreeting()}, welcome back</h1>
-            <p>{userEmail}</p>
+            <div className="hero-badge">FocusMate AI Workspace</div>
+            <h1>{getGreeting()}, stay in flow</h1>
+            <p className="hero-subtext">
+              Organize tasks, track sessions, and build a better study rhythm.
+            </p>
+
+            <div className="hero-user-row">
+              <div className="hero-user-chip">
+                <span className="hero-user-label">Signed in as</span>
+                <strong>{userEmail}</strong>
+              </div>
+
+              <div className="hero-user-chip soft-purple">
+                <span className="hero-user-label">Focus Score</span>
+                <strong>{focusScore}%</strong>
+              </div>
+            </div>
           </div>
 
           <div className="hero-right">
@@ -450,12 +472,12 @@ function App() {
                 )
               }
             >
-              {theme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+              {theme === "dark" ? "☀ Light Mode" : "🌙 Dark Mode"}
             </button>
 
             <div className="hero-mini-card">
-              <span>Today</span>
-              <strong>{stats.todaySessions} sessions</strong>
+              <span>Today’s Sessions</span>
+              <strong>{stats.todaySessions}</strong>
             </div>
 
             <button
@@ -464,6 +486,34 @@ function App() {
             >
               Logout
             </button>
+          </div>
+        </div>
+
+        <div className="quick-stats-grid">
+          <div className="overview-card">
+            <span className="overview-label">Total Sessions</span>
+            <strong>{stats.totalSessions}</strong>
+            <p>All completed focus rounds</p>
+          </div>
+
+          <div className="overview-card">
+            <span className="overview-label">Focus Minutes</span>
+            <strong>{stats.totalMinutes}</strong>
+            <p>Your deep work time so far</p>
+          </div>
+
+          <div className="overview-card">
+            <span className="overview-label">Current Streak</span>
+            <strong>
+              🔥 {stats.streak} day{stats.streak !== 1 ? "s" : ""}
+            </strong>
+            <p>Consistency builds momentum</p>
+          </div>
+
+          <div className="overview-card">
+            <span className="overview-label">Active Tasks</span>
+            <strong>{activeCount}</strong>
+            <p>Ready to be focused on next</p>
           </div>
         </div>
 
@@ -481,15 +531,15 @@ function App() {
             <div className="chart-card">
               <div className="section-card-header">
                 <div>
-                  <h2>📊 Last 7 Days</h2>
-                  <p>Track your consistency across the week.</p>
+                  <h2>Weekly Focus Activity</h2>
+                  <p>See how consistently you showed up in the last 7 days.</p>
                 </div>
               </div>
 
               {stats.totalSessions === 0 ? (
                 <div className="empty-state">
-                  No focus sessions yet. Complete your first session to see
-                  activity here.
+                  No focus sessions yet. Finish your first session to unlock your
+                  weekly insights.
                 </div>
               ) : (
                 <div className="chart-grid">
@@ -515,7 +565,7 @@ function App() {
           <div className="dashboard-side">
             <div className="goal-card">
               <div className="goal-header">
-                <h2>🎯 Daily Goal</h2>
+                <h2>Daily Goal</h2>
                 <span>
                   {stats.todaySessions}/{DAILY_GOAL}
                 </span>
@@ -530,57 +580,26 @@ function App() {
 
               <p className="goal-text">
                 {stats.todaySessions >= DAILY_GOAL
-                  ? "Amazing! You reached today’s focus goal."
+                  ? "Amazing. You reached today’s focus goal."
                   : `${DAILY_GOAL - stats.todaySessions} more session${
                       DAILY_GOAL - stats.todaySessions !== 1 ? "s" : ""
-                    } to reach your goal.`}
+                    } to hit today’s target.`}
               </p>
-            </div>
-
-            <div className="stats-grid side-stats-grid">
-              <div className="stats-box">
-                <div className="stat-card">
-                  <h3>Total Sessions</h3>
-                  <p>{stats.totalSessions}</p>
-                </div>
-              </div>
-
-              <div className="stats-box">
-                <div className="stat-card">
-                  <h3>Focus Minutes</h3>
-                  <p>{stats.totalMinutes}</p>
-                </div>
-              </div>
-
-              <div className="stats-box">
-                <div className="stat-card">
-                  <h3>Today</h3>
-                  <p>{stats.todaySessions}</p>
-                </div>
-              </div>
-
-              <div className="stats-box">
-                <div className="stat-card">
-                  <h3>Streak</h3>
-                  <p>
-                    🔥 {stats.streak} day{stats.streak !== 1 ? "s" : ""}
-                  </p>
-                </div>
-              </div>
             </div>
 
             <div className="recent-sessions-card compact-card">
               <div className="section-card-header recent-sessions-header">
                 <div>
-                  <h2>🕘 Recent Sessions</h2>
-                  <p>Your latest focus activity.</p>
+                  <h2>Recent Sessions</h2>
+                  <p>Your latest completed focus records.</p>
                 </div>
                 <span>{recentSessions.length} shown</span>
               </div>
 
               {recentSessions.length === 0 ? (
                 <div className="empty-state">
-                  No recent sessions yet. Finish one to see your history here.
+                  No recent sessions yet. Your completed sessions will appear
+                  here.
                 </div>
               ) : (
                 <div className="recent-sessions-list">
@@ -598,6 +617,23 @@ function App() {
                 </div>
               )}
             </div>
+
+            <div className="insight-card">
+              <div className="insight-card-top">
+                <span className="insight-badge">Smart Insight</span>
+                <h3>
+                  {activeCount > 0
+                    ? "Your best next step is to choose one task and start a focus round."
+                    : "You’ve cleared all active tasks. Add a new one and keep the momentum going."}
+                </h3>
+              </div>
+
+              <ul className="insight-list">
+                <li>{stats.todaySessions} sessions completed today</li>
+                <li>{completedCount} tasks marked done</li>
+                <li>{stats.streak} day streak in progress</li>
+              </ul>
+            </div>
           </div>
         </div>
 
@@ -605,8 +641,8 @@ function App() {
           <div className="task-toolbar-card">
             <div className="task-section-header">
               <div>
-                <h2>📝 My Tasks</h2>
-                <p>Choose one task, then start your focus session.</p>
+                <h2>Task Manager</h2>
+                <p>Select a task before starting your focus timer.</p>
               </div>
               <span className="task-summary">
                 {activeCount} active · {completedCount} completed
@@ -617,14 +653,14 @@ function App() {
               <div className="task-input-container">
                 <input
                   type="text"
-                  placeholder="Enter a task"
+                  placeholder="What do you want to focus on?"
                   value={newTask}
                   onChange={(e) => setNewTask(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") addTask();
                   }}
                 />
-                <button onClick={addTask}>Add</button>
+                <button onClick={addTask}>Add Task</button>
               </div>
 
               <div className="task-toolbar-bottom">
@@ -646,7 +682,7 @@ function App() {
                   className="suggest-btn small-suggest-btn"
                   onClick={suggestTask}
                 >
-                  ✨ Suggest
+                  ✨ Suggest Task
                 </button>
               </div>
             </div>
@@ -681,8 +717,8 @@ function App() {
 
           {tasks.length === 0 ? (
             <div className="empty-state large-empty-state">
-              No tasks yet. Add a task and select it before starting your focus
-              timer.
+              No tasks yet. Add a task and choose it before starting your focus
+              session.
             </div>
           ) : filteredTasks.length === 0 ? (
             <div className="empty-state large-empty-state">
@@ -787,7 +823,7 @@ function App() {
                               deleteTask(task.id);
                             }}
                           >
-                            ❌
+                            ✕
                           </button>
                         </div>
                       </>
@@ -804,3 +840,5 @@ function App() {
 }
 
 export default App;
+
+
