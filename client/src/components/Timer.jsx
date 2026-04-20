@@ -20,7 +20,6 @@ function Timer({ activeTask, user, onSessionSaved, soundEnabled = false }) {
   const gainRef = useRef(null);
 
   const totalSeconds = useMemo(() => TIMER_MODES[mode].minutes * 60, [mode]);
-
   const progressPercent = ((totalSeconds - secondsLeft) / totalSeconds) * 100;
 
   const circle = {
@@ -37,9 +36,7 @@ function Timer({ activeTask, user, onSessionSaved, soundEnabled = false }) {
 
     const loadSessions = async () => {
       if (!user) {
-        if (!ignore) {
-          setSessions(0);
-        }
+        if (!ignore) setSessions(0);
         return;
       }
 
@@ -119,7 +116,11 @@ function Timer({ activeTask, user, onSessionSaved, soundEnabled = false }) {
     }
 
     const bufferSize = audioContext.sampleRate * 2;
-    const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+    const noiseBuffer = audioContext.createBuffer(
+      1,
+      bufferSize,
+      audioContext.sampleRate
+    );
     const output = noiseBuffer.getChannelData(0);
 
     for (let i = 0; i < bufferSize; i += 1) {
@@ -149,6 +150,7 @@ function Timer({ activeTask, user, onSessionSaved, soundEnabled = false }) {
 
   useEffect(() => {
     startAmbientSound();
+
     if (!soundEnabled || !isRunning || mode !== "focus") {
       stopAmbientSound();
     }
@@ -168,8 +170,7 @@ function Timer({ activeTask, user, onSessionSaved, soundEnabled = false }) {
   }, []);
 
   useEffect(() => {
-    if (secondsLeft > 0) return;
-    if (!isRunning) return;
+    if (secondsLeft > 0 || !isRunning) return;
 
     const completeSession = async () => {
       setIsRunning(false);
@@ -286,12 +287,12 @@ function Timer({ activeTask, user, onSessionSaved, soundEnabled = false }) {
           <p className="timer-subtitle">
             {mode === "focus"
               ? "Choose a single task and work without distractions."
-              : "Pause, reset, and come back stronger for the next block."}
+              : "Take a real pause, then come back stronger for the next round."}
           </p>
         </div>
 
         <div className="timer-session-bubble">
-          <span>Completed</span>
+          <span>Completed sessions</span>
           <strong>{sessions}</strong>
         </div>
       </div>
@@ -305,7 +306,9 @@ function Timer({ activeTask, user, onSessionSaved, soundEnabled = false }) {
         </button>
 
         <button
-          className={`timer-mode-btn ${mode === "shortBreak" ? "timer-mode-active" : ""}`}
+          className={`timer-mode-btn ${
+            mode === "shortBreak" ? "timer-mode-active" : ""
+          }`}
           onClick={() => switchMode("shortBreak")}
         >
           Short Break
@@ -371,7 +374,8 @@ function Timer({ activeTask, user, onSessionSaved, soundEnabled = false }) {
           <div className="timer-ring-content">
             <span className="timer-mode-text">{TIMER_MODES[mode].label}</span>
             <h1 className="timer-time">
-              {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+              {String(minutes).padStart(2, "0")}:
+              {String(seconds).padStart(2, "0")}
             </h1>
             <span className="timer-progress-text">
               {Math.round(progressPercent)}% complete
