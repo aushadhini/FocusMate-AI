@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabase";
 
 const TIMER_MODES = {
@@ -7,7 +7,7 @@ const TIMER_MODES = {
   longBreak: { label: "Long Break", minutes: 15 },
 };
 
-function Timer({ activeTask, user, onSessionSaved }) {
+function Timer({ activeTask, user, onSessionSaved, soundEnabled = false }) {
   const [mode, setMode] = useState("focus");
   const [secondsLeft, setSecondsLeft] = useState(
     TIMER_MODES.focus.minutes * 60
@@ -15,9 +15,11 @@ function Timer({ activeTask, user, onSessionSaved }) {
   const [isRunning, setIsRunning] = useState(false);
   const [sessions, setSessions] = useState(0);
 
-  const totalSeconds = useMemo(() => {
-    return TIMER_MODES[mode].minutes * 60;
-  }, [mode]);
+  const audioContextRef = useRef(null);
+  const noiseSourceRef = useRef(null);
+  const gainRef = useRef(null);
+
+  const totalSeconds = useMemo(() => TIMER_MODES[mode].minutes * 60, [mode]);
 
   const progressPercent = ((totalSeconds - secondsLeft) / totalSeconds) * 100;
 
@@ -64,7 +66,7 @@ function Timer({ activeTask, user, onSessionSaved }) {
   }, [user]);
 
   useEffect(() => {
-    if (!isRunning) return;
+    if (!isRunning) return undefined;
 
     const timer = setInterval(() => {
       setSecondsLeft((prev) => prev - 1);
@@ -73,18 +75,111 @@ function Timer({ activeTask, user, onSessionSaved }) {
     return () => clearInterval(timer);
   }, [isRunning]);
 
+  const stopAmbientSound = () => {
+    if (noiseSourceRef.current) {
+      try {
+        noiseSourceRef.current.stop();
+      } catch (error) {
+        console.log("Noise stop skipped:", error);
+      }
+      noiseSourceRef.current.disconnect();
+      noiseSourceRef.current = null;
+    }
+
+    if (gainRef.current) {
+      gainRef.current.disconnect();
+      gainRef.current = null;
+    }
+  };
+
+  const startAmbientSound = async () => {
+    if (!soundEnabled || !isRunning || mode !== "focus") {
+      stopAmbientSound();
+      return;
+    }
+
+    if (noiseSourceRef.current) return;
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContextClass();
+    }
+
+    const audioContext = audioContextRef.current;
+
+    if (audioContext.state === "suspended") {
+      try {
+        await audioContext.resume();
+      } catch (error) {
+        console.error("Audio resume failed:", error);
+        return;
+      }
+    }
+
+    const bufferSize = audioContext.sampleRate * 2;
+    const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i += 1) {
+      output[i] = (Math.random() * 2 - 1) * 0.25;
+    }
+
+    const whiteNoise = audioContext.createBufferSource();
+    whiteNoise.buffer = noiseBuffer;
+    whiteNoise.loop = true;
+
+    const lowpass = audioContext.createBiquadFilter();
+    lowpass.type = "lowpass";
+    lowpass.frequency.value = 680;
+    lowpass.Q.value = 0.4;
+
+    const gainNode = audioContext.createGain();
+    gainNode.gain.value = 0.018;
+
+    whiteNoise.connect(lowpass);
+    lowpass.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    whiteNoise.start();
+
+    noiseSourceRef.current = whiteNoise;
+    gainRef.current = gainNode;
+  };
+
+  useEffect(() => {
+    startAmbientSound();
+    if (!soundEnabled || !isRunning || mode !== "focus") {
+      stopAmbientSound();
+    }
+
+    return () => {
+      if (!isRunning) stopAmbientSound();
+    };
+  }, [soundEnabled, isRunning, mode]);
+
+  useEffect(() => {
+    return () => {
+      stopAmbientSound();
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {});
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (secondsLeft > 0) return;
     if (!isRunning) return;
 
     const completeSession = async () => {
       setIsRunning(false);
+      stopAmbientSound();
 
       try {
         const audio = new Audio(
           "data:audio/wav;base64,UklGRlQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YTAAAAAAAP//AAD//wAA//8AAP//AAD//wAA"
         );
-        audio.play();
+        await audio.play();
       } catch (error) {
         console.log("Audio play blocked:", error);
       }
@@ -166,17 +261,20 @@ function Timer({ activeTask, user, onSessionSaved }) {
 
   const pauseTimer = () => {
     setIsRunning(false);
+    stopAmbientSound();
   };
 
   const resetTimer = () => {
     setIsRunning(false);
     setSecondsLeft(totalSeconds);
+    stopAmbientSound();
   };
 
   const switchMode = (nextMode) => {
     setIsRunning(false);
     setMode(nextMode);
     setSecondsLeft(TIMER_MODES[nextMode].minutes * 60);
+    stopAmbientSound();
   };
 
   return (
@@ -187,8 +285,8 @@ function Timer({ activeTask, user, onSessionSaved }) {
           <h2 className="timer-title">Focus Timer</h2>
           <p className="timer-subtitle">
             {mode === "focus"
-              ? "Pick one task and work without distractions."
-              : "Reset your mind and prepare for the next session."}
+              ? "Choose a single task and work without distractions."
+              : "Pause, reset, and come back stronger for the next block."}
           </p>
         </div>
 
@@ -273,8 +371,7 @@ function Timer({ activeTask, user, onSessionSaved }) {
           <div className="timer-ring-content">
             <span className="timer-mode-text">{TIMER_MODES[mode].label}</span>
             <h1 className="timer-time">
-              {String(minutes).padStart(2, "0")}:
-              {String(seconds).padStart(2, "0")}
+              {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
             </h1>
             <span className="timer-progress-text">
               {Math.round(progressPercent)}% complete
@@ -294,8 +391,14 @@ function Timer({ activeTask, user, onSessionSaved }) {
           </div>
 
           <div className="timer-side-card">
-            <span>Mode</span>
-            <strong>{TIMER_MODES[mode].label}</strong>
+            <span>Ambient sound</span>
+            <strong>
+              {soundEnabled && mode === "focus"
+                ? isRunning
+                  ? "Playing"
+                  : "Armed"
+                : "Off"}
+            </strong>
           </div>
         </div>
       </div>

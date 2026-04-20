@@ -1,132 +1,121 @@
 import { useState } from "react";
 import { supabase } from "./supabase";
 
-function Auth() {
+function Auth({ theme = "light", setTheme }) {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  const handleMagicLink = async (event) => {
+    event.preventDefault();
     setLoading(true);
+    setMessage("");
 
-    try {
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+    const { error } = await supabase.auth.signInWithOtp({ email });
 
-        if (error) {
-          alert(error.message);
-        } else {
-          alert("Login successful!");
-        }
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-
-        if (error) {
-          alert(error.message);
-        } else {
-          alert("Signup successful!");
-        }
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Something went wrong");
+    if (error) {
+      setMessage(error.message);
+    } else {
+      setMessage("Magic link sent. Check your email to sign in.");
     }
 
     setLoading(false);
-  }
+  };
+
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+    });
+
+    if (error) {
+      setMessage(error.message);
+    }
+  };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h2>{isLogin ? "Login" : "Sign Up"}</h2>
+    <div className="auth-shell">
+      <div className="auth-bg-blur auth-bg-one" />
+      <div className="auth-bg-blur auth-bg-two" />
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <input
-            type="email"
-            placeholder="Enter email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={styles.input}
-          />
+      <div className="auth-layout">
+        <div className="auth-brand-panel">
+          <div className="hero-badge">FocusMate AI · Premium Productivity</div>
+          <h1>Focus better. Study smarter. Build your rhythm.</h1>
+          <p>
+            A modern workspace for tasks, Pomodoro sessions, streak tracking,
+            and elegant study flow — designed to feel like a premium app.
+          </p>
 
-          <input
-            type="password"
-            placeholder="Enter password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={styles.input}
-          />
+          <div className="auth-feature-list">
+            <div className="auth-feature-card">
+              <strong>Deep focus timer</strong>
+              <span>Pomodoro modes, progress ring, and session saving.</span>
+            </div>
 
-          <button type="submit" style={styles.button} disabled={loading}>
-            {loading ? "Please wait..." : isLogin ? "Login" : "Create Account"}
+            <div className="auth-feature-card">
+              <strong>Task clarity</strong>
+              <span>Priorities, filters, and quick focus selection.</span>
+            </div>
+
+            <div className="auth-feature-card">
+              <strong>Consistency tracking</strong>
+              <span>Weekly trends, streaks, and a visual heatmap.</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="auth-card">
+          <div className="auth-card-top">
+            <div>
+              <span className="auth-kicker">Welcome back</span>
+              <h2>Sign in to your workspace</h2>
+              <p>Continue your focus sessions with your saved data.</p>
+            </div>
+
+            {setTheme && (
+              <button
+                className="theme-toggle-btn auth-theme-btn"
+                onClick={() =>
+                  setTheme((prevTheme) =>
+                    prevTheme === "dark" ? "light" : "dark"
+                  )
+                }
+              >
+                {theme === "dark" ? "☀ Light" : "🌙 Dark"}
+              </button>
+            )}
+          </div>
+
+          <button className="oauth-btn" onClick={signInWithGoogle}>
+            <span>🔐</span>
+            Continue with Google
           </button>
-        </form>
 
-        <p style={styles.switchText} onClick={() => setIsLogin(!isLogin)}>
-          {isLogin
-            ? "Don’t have an account? Sign Up"
-            : "Already have an account? Login"}
-        </p>
+          <div className="auth-divider">
+            <span>or use email</span>
+          </div>
+
+          <form className="auth-form" onSubmit={handleMagicLink}>
+            <label htmlFor="email">Email address</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+
+            <button className="auth-submit-btn" type="submit" disabled={loading}>
+              {loading ? "Sending..." : "Send Magic Link"}
+            </button>
+          </form>
+
+          {message ? <div className="auth-message">{message}</div> : null}
+        </div>
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    background: "#0b1220",
-  },
-  card: {
-    background: "#111827",
-    padding: "30px",
-    borderRadius: "16px",
-    width: "350px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
-    color: "white",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    marginTop: "20px",
-  },
-  input: {
-    padding: "12px",
-    borderRadius: "10px",
-    border: "1px solid #374151",
-    fontSize: "16px",
-    background: "#1f2937",
-    color: "white",
-  },
-  button: {
-    padding: "12px",
-    borderRadius: "10px",
-    border: "none",
-    background: "#22c55e",
-    color: "white",
-    fontSize: "16px",
-    cursor: "pointer",
-  },
-  switchText: {
-    marginTop: "16px",
-    color: "#60a5fa",
-    cursor: "pointer",
-    textAlign: "center",
-  },
-};
 
 export default Auth;

@@ -7,6 +7,7 @@ import { supabase } from "./supabase";
 import Auth from "./Auth";
 
 const DAILY_GOAL = 4;
+const HEATMAP_DAYS = 28;
 
 const emptyStats = {
   totalSessions: 0,
@@ -26,15 +27,23 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(emptyStats);
   const [weeklyChartData, setWeeklyChartData] = useState([]);
+  const [heatmapData, setHeatmapData] = useState([]);
   const [filter, setFilter] = useState("all");
   const [recentSessions, setRecentSessions] = useState([]);
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
+  const [soundEnabled, setSoundEnabled] = useState(
+    localStorage.getItem("focus-sound") === "on"
+  );
 
   useEffect(() => {
     document.body.classList.remove("light", "dark");
     document.body.classList.add(theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem("focus-sound", soundEnabled ? "on" : "off");
+  }, [soundEnabled]);
 
   useEffect(() => {
     let mounted = true;
@@ -53,6 +62,7 @@ function App() {
         setActiveTask(null);
         setStats(emptyStats);
         setWeeklyChartData([]);
+        setHeatmapData([]);
         setRecentSessions([]);
       }
 
@@ -71,6 +81,7 @@ function App() {
         setActiveTask(null);
         setStats(emptyStats);
         setWeeklyChartData([]);
+        setHeatmapData([]);
         setRecentSessions([]);
       }
 
@@ -119,8 +130,9 @@ function App() {
 
     const days = [];
 
-    for (let i = 6; i >= 0; i--) {
+    for (let i = 6; i >= 0; i -= 1) {
       const date = new Date();
+      date.setHours(0, 0, 0, 0);
       date.setDate(date.getDate() - i);
 
       const key = getLocalDateKey(date);
@@ -133,6 +145,44 @@ function App() {
     }
 
     return days;
+  };
+
+  const buildHeatmapData = (sessionsData) => {
+    const countsByDay = {};
+
+    sessionsData.forEach((item) => {
+      if (!item.completed_at) return;
+      const key = getLocalDateKey(item.completed_at);
+      countsByDay[key] = (countsByDay[key] || 0) + 1;
+    });
+
+    const cells = [];
+
+    for (let i = HEATMAP_DAYS - 1; i >= 0; i -= 1) {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - i);
+      const key = getLocalDateKey(date);
+      const count = countsByDay[key] || 0;
+
+      let level = 0;
+      if (count >= 4) level = 4;
+      else if (count === 3) level = 3;
+      else if (count === 2) level = 2;
+      else if (count === 1) level = 1;
+
+      cells.push({
+        date: key,
+        label: new Date(date).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+        count,
+        level,
+      });
+    }
+
+    return cells;
   };
 
   const calculateStreak = (sessionsData) => {
@@ -148,9 +198,18 @@ function App() {
 
     if (uniqueDays.length === 0) return 0;
 
+    const todayKey = getLocalDateKey(new Date());
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayKey = getLocalDateKey(yesterday);
+
+    if (uniqueDays[0] !== todayKey && uniqueDays[0] !== yesterdayKey) {
+      return 0;
+    }
+
     let streak = 1;
 
-    for (let i = 0; i < uniqueDays.length - 1; i++) {
+    for (let i = 0; i < uniqueDays.length - 1; i += 1) {
       const current = new Date(uniqueDays[i]);
       const next = new Date(uniqueDays[i + 1]);
 
@@ -220,6 +279,7 @@ function App() {
 
     const streak = calculateStreak(sessionsData);
     const weeklyData = buildWeeklyChartData(sessionsData);
+    const heatmap = buildHeatmapData(sessionsData);
 
     setStats({
       totalSessions,
@@ -229,6 +289,7 @@ function App() {
     });
 
     setWeeklyChartData(weeklyData);
+    setHeatmapData(heatmap);
   }, []);
 
   const fetchRecentSessions = useCallback(async (currentUserId) => {
@@ -319,10 +380,9 @@ function App() {
     );
 
     if (activeTask?.id === id) {
-      setActiveTask((prev) => ({
-        ...prev,
-        completed: !completed,
-      }));
+      setActiveTask((prev) =>
+        prev ? { ...prev, completed: !completed } : prev
+      );
     }
   };
 
@@ -353,7 +413,7 @@ function App() {
     );
 
     if (activeTask?.id === id) {
-      setActiveTask((prev) => ({ ...prev, text: trimmedText }));
+      setActiveTask((prev) => (prev ? { ...prev, text: trimmedText } : prev));
     }
 
     setEditingIndex(null);
@@ -362,13 +422,22 @@ function App() {
 
   const suggestTask = () => {
     const suggestions = [
-      "Review lecture notes for 25 minutes",
-      "Build one FocusMate UI improvement",
-      "Practice JavaScript array methods",
-      "Write project documentation",
-      "Revise React hooks and state",
-      "Organize tomorrow's study plan",
+      "Revise one lecture topic for 25 minutes",
+      "Clean up one UI section in FocusMate AI",
+      "Write notes for tomorrow's study goals",
+      "Review React state and props",
+      "Practice one coding problem",
+      "Organize tasks for the next deep-work block",
     ];
+
+    const remainingHighPriority = tasks.find(
+      (task) => !task.completed && task.priority === "high"
+    );
+
+    if (remainingHighPriority) {
+      setNewTask(`Finish: ${remainingHighPriority.text}`);
+      return;
+    }
 
     const randomTask =
       suggestions[Math.floor(Math.random() * suggestions.length)];
@@ -376,9 +445,10 @@ function App() {
     setNewTask(randomTask);
   };
 
-  const goalPercent = useMemo(() => {
-    return Math.min((stats.todaySessions / DAILY_GOAL) * 100, 100);
-  }, [stats.todaySessions]);
+  const goalPercent = useMemo(
+    () => Math.min((stats.todaySessions / DAILY_GOAL) * 100, 100),
+    [stats.todaySessions]
+  );
 
   const filteredTasks = useMemo(() => {
     if (filter === "active") {
@@ -394,6 +464,9 @@ function App() {
 
   const activeCount = tasks.filter((task) => !task.completed).length;
   const completedCount = tasks.filter((task) => task.completed).length;
+  const highPriorityCount = tasks.filter(
+    (task) => !task.completed && task.priority === "high"
+  ).length;
 
   const getPriorityClass = (priority) => {
     if (priority === "high") return "priority-high";
@@ -410,17 +483,67 @@ function App() {
   const getGreeting = () => {
     const hour = new Date().getHours();
 
-    if (hour < 12) return "Good Morning";
-    if (hour < 18) return "Good Afternoon";
-    return "Good Evening";
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
   };
+
+  const getProductivityMessage = () => {
+    if (stats.todaySessions >= DAILY_GOAL) {
+      return "You already hit today's target. This is elite consistency.";
+    }
+
+    if (highPriorityCount > 0) {
+      return `You have ${highPriorityCount} high-priority task${
+        highPriorityCount > 1 ? "s" : ""
+      } waiting. Start with the hardest one first.`;
+    }
+
+    if (activeCount > 0) {
+      return `There are ${activeCount} active task${
+        activeCount > 1 ? "s" : ""
+      } left. Pick one small win and start a focus round.`;
+    }
+
+    return "Inbox clear. Add a fresh task and keep your momentum alive.";
+  };
+
+  const topRecommendation = useMemo(() => {
+    const highPriorityTask = tasks.find(
+      (task) => !task.completed && task.priority === "high"
+    );
+
+    if (highPriorityTask) {
+      return `Best next move: finish “${highPriorityTask.text}”.`;
+    }
+
+    const mediumPriorityTask = tasks.find(
+      (task) => !task.completed && task.priority === "medium"
+    );
+
+    if (mediumPriorityTask) {
+      return `Recommended focus: “${mediumPriorityTask.text}”.`;
+    }
+
+    if (activeTask && !activeTask.completed) {
+      return `Stay with “${activeTask.text}” and complete another round.`;
+    }
+
+    return "No active recommendation yet. Add a meaningful task to get started.";
+  }, [tasks, activeTask]);
 
   const userEmail = session?.user?.email || "Focused user";
 
   const focusScore = Math.min(
-    Math.round(stats.totalSessions * 3 + stats.streak * 8 + stats.todaySessions * 12),
+    Math.round(
+      stats.totalSessions * 3 + stats.streak * 8 + stats.todaySessions * 12
+    ),
     100
   );
+
+  const completionRate = tasks.length
+    ? Math.round((completedCount / tasks.length) * 100)
+    : 0;
 
   if (loading) {
     return (
@@ -431,39 +554,47 @@ function App() {
   }
 
   if (!session) {
-    return <Auth />;
+    return <Auth theme={theme} setTheme={setTheme} />;
   }
 
-  const maxSessions = Math.max(
-    ...weeklyChartData.map((item) => item.sessions),
-    1
-  );
+  const maxSessions = Math.max(...weeklyChartData.map((item) => item.sessions), 1);
 
   return (
     <div className="app-shell">
       <div className="app-container">
-        <div className="hero-card">
+        <section className="hero-card premium-hero-card">
+          <div className="hero-orb hero-orb-one" />
+          <div className="hero-orb hero-orb-two" />
+
           <div className="hero-left">
-            <div className="hero-badge">FocusMate AI Workspace</div>
-            <h1>{getGreeting()}, stay in flow</h1>
+            <div className="hero-badge">FocusMate AI · Productivity Studio</div>
+            <h1>
+              {getGreeting()}, <span>build deep focus with style.</span>
+            </h1>
             <p className="hero-subtext">
-              Organize tasks, track sessions, and build a better study rhythm.
+              A premium study workspace with task planning, focus sessions,
+              streak tracking, and smarter daily momentum.
             </p>
 
             <div className="hero-user-row">
-              <div className="hero-user-chip">
+              <div className="hero-user-chip glass-chip">
                 <span className="hero-user-label">Signed in as</span>
                 <strong>{userEmail}</strong>
               </div>
 
               <div className="hero-user-chip soft-purple">
-                <span className="hero-user-label">Focus Score</span>
+                <span className="hero-user-label">Focus score</span>
                 <strong>{focusScore}%</strong>
+              </div>
+
+              <div className="hero-user-chip soft-green">
+                <span className="hero-user-label">Completion rate</span>
+                <strong>{completionRate}%</strong>
               </div>
             </div>
           </div>
 
-          <div className="hero-right">
+          <div className="hero-right hero-action-panel">
             <button
               className="theme-toggle-btn"
               onClick={() =>
@@ -472,12 +603,26 @@ function App() {
                 )
               }
             >
-              {theme === "dark" ? "☀ Light Mode" : "🌙 Dark Mode"}
+              {theme === "dark" ? "☀ Switch to Light" : "🌙 Switch to Dark"}
             </button>
 
-            <div className="hero-mini-card">
-              <span>Today’s Sessions</span>
-              <strong>{stats.todaySessions}</strong>
+            <button
+              className={`sound-toggle-btn ${soundEnabled ? "sound-on" : ""}`}
+              onClick={() => setSoundEnabled((prev) => !prev)}
+            >
+              {soundEnabled ? "🎧 Focus Sound On" : "🔈 Focus Sound Off"}
+            </button>
+
+            <div className="hero-mini-grid">
+              <div className="hero-mini-card">
+                <span>Today</span>
+                <strong>{stats.todaySessions} sessions</strong>
+              </div>
+
+              <div className="hero-mini-card">
+                <span>Streak</span>
+                <strong>{stats.streak} days</strong>
+              </div>
             </div>
 
             <button
@@ -487,37 +632,37 @@ function App() {
               Logout
             </button>
           </div>
-        </div>
+        </section>
 
-        <div className="quick-stats-grid">
-          <div className="overview-card">
-            <span className="overview-label">Total Sessions</span>
+        <section className="quick-stats-grid premium-stats-grid">
+          <div className="overview-card stat-card-primary">
+            <span className="overview-label">Total sessions</span>
             <strong>{stats.totalSessions}</strong>
-            <p>All completed focus rounds</p>
+            <p>All completed focus rounds saved to your workspace.</p>
           </div>
 
-          <div className="overview-card">
-            <span className="overview-label">Focus Minutes</span>
+          <div className="overview-card stat-card-secondary">
+            <span className="overview-label">Focus minutes</span>
             <strong>{stats.totalMinutes}</strong>
-            <p>Your deep work time so far</p>
+            <p>Your total deep work time across all study sessions.</p>
           </div>
 
-          <div className="overview-card">
-            <span className="overview-label">Current Streak</span>
+          <div className="overview-card stat-card-accent">
+            <span className="overview-label">Current streak</span>
             <strong>
               🔥 {stats.streak} day{stats.streak !== 1 ? "s" : ""}
             </strong>
-            <p>Consistency builds momentum</p>
+            <p>Keep showing up daily to protect your momentum.</p>
           </div>
 
-          <div className="overview-card">
-            <span className="overview-label">Active Tasks</span>
+          <div className="overview-card stat-card-success">
+            <span className="overview-label">Active tasks</span>
             <strong>{activeCount}</strong>
-            <p>Ready to be focused on next</p>
+            <p>Ready to turn into your next focused work block.</p>
           </div>
-        </div>
+        </section>
 
-        <div className="dashboard-grid">
+        <section className="dashboard-grid premium-dashboard-grid">
           <div className="dashboard-main">
             <Timer
               activeTask={activeTask}
@@ -526,23 +671,27 @@ function App() {
                 fetchStats(session.user.id);
                 fetchRecentSessions(session.user.id);
               }}
+              soundEnabled={soundEnabled}
             />
 
-            <div className="chart-card">
+            <div className="chart-card premium-section-card">
               <div className="section-card-header">
                 <div>
                   <h2>Weekly Focus Activity</h2>
-                  <p>See how consistently you showed up in the last 7 days.</p>
+                  <p>
+                    See how consistently you showed up during the last seven days.
+                  </p>
                 </div>
+                <div className="section-chip">7-day trend</div>
               </div>
 
               {stats.totalSessions === 0 ? (
                 <div className="empty-state">
-                  No focus sessions yet. Finish your first session to unlock your
-                  weekly insights.
+                  No focus sessions yet. Finish your first session to unlock
+                  charts and consistency insights.
                 </div>
               ) : (
-                <div className="chart-grid">
+                <div className="chart-grid premium-chart-grid">
                   {weeklyChartData.map((item) => (
                     <div key={item.fullDate} className="chart-bar-group">
                       <span className="chart-value">{item.sessions}</span>
@@ -560,10 +709,53 @@ function App() {
                 </div>
               )}
             </div>
+
+            <div className="chart-card premium-section-card heatmap-card">
+              <div className="section-card-header">
+                <div>
+                  <h2>Consistency Heatmap</h2>
+                  <p>
+                    Your last {HEATMAP_DAYS} days of effort, from quiet days to
+                    your strongest focus streaks.
+                  </p>
+                </div>
+                <div className="section-chip">Streak view</div>
+              </div>
+
+              {heatmapData.length === 0 ? (
+                <div className="empty-state">No activity available yet.</div>
+              ) : (
+                <>
+                  <div className="heatmap-grid">
+                    {heatmapData.map((cell) => (
+                      <div
+                        key={cell.date}
+                        className={`heatmap-cell heat-level-${cell.level}`}
+                        title={`${cell.label} · ${cell.count} session${
+                          cell.count !== 1 ? "s" : ""
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="heatmap-legend">
+                    <span>Less</span>
+                    <div className="legend-dots">
+                      <span className="heatmap-cell heat-level-0" />
+                      <span className="heatmap-cell heat-level-1" />
+                      <span className="heatmap-cell heat-level-2" />
+                      <span className="heatmap-cell heat-level-3" />
+                      <span className="heatmap-cell heat-level-4" />
+                    </div>
+                    <span>More</span>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="dashboard-side">
-            <div className="goal-card">
+            <div className="goal-card premium-section-card">
               <div className="goal-header">
                 <h2>Daily Goal</h2>
                 <span>
@@ -587,7 +779,28 @@ function App() {
               </p>
             </div>
 
-            <div className="recent-sessions-card compact-card">
+            <div className="coach-card premium-section-card">
+              <div className="section-card-header compact-header">
+                <div>
+                  <h2>Smart Coach</h2>
+                  <p>Suggestions based on your current workload.</p>
+                </div>
+                <div className="section-chip">Adaptive</div>
+              </div>
+
+              <div className="coach-highlight">
+                <span className="coach-label">Recommended move</span>
+                <strong>{topRecommendation}</strong>
+              </div>
+
+              <ul className="coach-list">
+                <li>{getProductivityMessage()}</li>
+                <li>{stats.todaySessions} sessions completed today.</li>
+                <li>{completedCount} tasks are already finished.</li>
+              </ul>
+            </div>
+
+            <div className="recent-sessions-card compact-card premium-section-card">
               <div className="section-card-header recent-sessions-header">
                 <div>
                   <h2>Recent Sessions</h2>
@@ -598,8 +811,7 @@ function App() {
 
               {recentSessions.length === 0 ? (
                 <div className="empty-state">
-                  No recent sessions yet. Your completed sessions will appear
-                  here.
+                  No recent sessions yet. Your completed sessions will appear here.
                 </div>
               ) : (
                 <div className="recent-sessions-list">
@@ -618,14 +830,10 @@ function App() {
               )}
             </div>
 
-            <div className="insight-card">
+            <div className="insight-card premium-section-card">
               <div className="insight-card-top">
-                <span className="insight-badge">Smart Insight</span>
-                <h3>
-                  {activeCount > 0
-                    ? "Your best next step is to choose one task and start a focus round."
-                    : "You’ve cleared all active tasks. Add a new one and keep the momentum going."}
-                </h3>
+                <span className="insight-badge">Momentum insight</span>
+                <h3>{getProductivityMessage()}</h3>
               </div>
 
               <ul className="insight-list">
@@ -635,14 +843,14 @@ function App() {
               </ul>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="task-area">
-          <div className="task-toolbar-card">
+        <section className="task-area">
+          <div className="task-toolbar-card premium-section-card">
             <div className="task-section-header">
               <div>
                 <h2>Task Manager</h2>
-                <p>Select a task before starting your focus timer.</p>
+                <p>Select one task before starting your focus timer.</p>
               </div>
               <span className="task-summary">
                 {activeCount} active · {completedCount} completed
@@ -650,10 +858,10 @@ function App() {
             </div>
 
             <div className="task-input-stack">
-              <div className="task-input-container">
+              <div className="task-input-container premium-task-input-container">
                 <input
                   type="text"
-                  placeholder="What do you want to focus on?"
+                  placeholder="What do you want to focus on next?"
                   value={newTask}
                   onChange={(e) => setNewTask(e.target.value)}
                   onKeyDown={(e) => {
@@ -682,32 +890,26 @@ function App() {
                   className="suggest-btn small-suggest-btn"
                   onClick={suggestTask}
                 >
-                  ✨ Suggest Task
+                  ✨ Smart Suggestion
                 </button>
               </div>
             </div>
 
-            <div className="filter-tabs">
+            <div className="filter-tabs premium-filter-tabs">
               <button
-                className={`filter-tab ${
-                  filter === "all" ? "filter-tab-active" : ""
-                }`}
+                className={`filter-tab ${filter === "all" ? "filter-tab-active" : ""}`}
                 onClick={() => setFilter("all")}
               >
                 All ({tasks.length})
               </button>
               <button
-                className={`filter-tab ${
-                  filter === "active" ? "filter-tab-active" : ""
-                }`}
+                className={`filter-tab ${filter === "active" ? "filter-tab-active" : ""}`}
                 onClick={() => setFilter("active")}
               >
                 Active ({activeCount})
               </button>
               <button
-                className={`filter-tab ${
-                  filter === "completed" ? "filter-tab-active" : ""
-                }`}
+                className={`filter-tab ${filter === "completed" ? "filter-tab-active" : ""}`}
                 onClick={() => setFilter("completed")}
               >
                 Completed ({completedCount})
@@ -725,11 +927,9 @@ function App() {
               No tasks in this filter yet.
             </div>
           ) : (
-            <ul className="task-list modern-task-list">
+            <ul className="task-list modern-task-list premium-task-list">
               {filteredTasks.map((task) => {
-                const originalIndex = tasks.findIndex(
-                  (item) => item.id === task.id
-                );
+                const originalIndex = tasks.findIndex((item) => item.id === task.id);
 
                 return (
                   <li
@@ -791,9 +991,7 @@ function App() {
                               </span>
 
                               {activeTask?.id === task.id && (
-                                <span className="task-status-chip">
-                                  In Focus
-                                </span>
+                                <span className="task-status-chip">In Focus</span>
                               )}
 
                               {task.completed && (
@@ -833,12 +1031,10 @@ function App() {
               })}
             </ul>
           )}
-        </div>
+        </section>
       </div>
     </div>
   );
 }
 
 export default App;
-
-
