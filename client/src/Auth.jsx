@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "./supabase";
 
-function Auth({ theme = "light", setTheme }) {
+function Auth() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -11,7 +11,12 @@ function Auth({ theme = "light", setTheme }) {
     setLoading(true);
     setMessage("");
 
-    const { error } = await supabase.auth.signInWithOtp({ email });
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
 
     if (error) {
       setMessage(error.message);
@@ -25,6 +30,9 @@ function Auth({ theme = "light", setTheme }) {
   const signInWithGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+      },
     });
 
     if (error) {
@@ -34,85 +42,47 @@ function Auth({ theme = "light", setTheme }) {
 
   return (
     <div className="auth-shell">
-      <div className="auth-bg-blur auth-bg-one" />
-      <div className="auth-bg-blur auth-bg-two" />
+      <div className="auth-hero">
+        <div className="auth-badge">Premium Productivity Workspace</div>
+        <h1>Focus better. Organize tasks. Build your rhythm.</h1>
+        <p>
+          FocusMate AI helps you manage tasks, run Pomodoro sessions, and track
+          your consistency in one clean workspace.
+        </p>
+      </div>
 
-      <div className="auth-layout">
-        <div className="auth-brand-panel">
-          <div className="hero-badge">FocusMate AI · Premium Productivity</div>
-          <h1>Focus better. Study smarter. Build your rhythm.</h1>
-          <p>
-            A modern workspace for tasks, Pomodoro sessions, streak tracking,
-            and elegant study flow — designed to feel like a premium app.
-          </p>
+      <div className="auth-card">
+        <p className="eyebrow">Welcome back</p>
+        <h2>Sign in to FocusMate AI</h2>
+        <p className="muted">
+          Continue with your saved tasks, sessions, and progress.
+        </p>
 
-          <div className="auth-feature-list">
-            <div className="auth-feature-card">
-              <strong>Deep focus timer</strong>
-              <span>Pomodoro modes, progress ring, and session saving.</span>
-            </div>
+        <button className="btn btn-primary full-width" onClick={signInWithGoogle}>
+          Continue with Google
+        </button>
 
-            <div className="auth-feature-card">
-              <strong>Task clarity</strong>
-              <span>Priorities, filters, and quick focus selection.</span>
-            </div>
-
-            <div className="auth-feature-card">
-              <strong>Consistency tracking</strong>
-              <span>Weekly trends, streaks, and a visual heatmap.</span>
-            </div>
-          </div>
+        <div className="auth-divider">
+          <span>or use email</span>
         </div>
 
-        <div className="auth-card">
-          <div className="auth-card-top">
-            <div>
-              <span className="auth-kicker">Welcome back</span>
-              <h2>Sign in to your workspace</h2>
-              <p>Continue your focus sessions with your saved data.</p>
-            </div>
+        <form onSubmit={handleMagicLink} className="auth-form">
+          <label className="field-label">Email address</label>
+          <input
+            type="email"
+            className="input"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
 
-            {setTheme && (
-              <button
-                className="theme-toggle-btn auth-theme-btn"
-                onClick={() =>
-                  setTheme((prevTheme) =>
-                    prevTheme === "dark" ? "light" : "dark"
-                  )
-                }
-              >
-                {theme === "dark" ? "☀ Light" : "🌙 Dark"}
-              </button>
-            )}
-          </div>
-
-          <button className="oauth-btn" onClick={signInWithGoogle}>
-            <span>🔐</span>
-            Continue with Google
+          <button className="btn btn-secondary full-width" type="submit" disabled={loading}>
+            {loading ? "Sending..." : "Send Magic Link"}
           </button>
+        </form>
 
-          <div className="auth-divider">
-            <span>or use email</span>
-          </div>
-
-          <form className="auth-form" onSubmit={handleMagicLink}>
-            <label htmlFor="email">Email address</label>
-            <input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-
-            <button className="auth-submit-btn" type="submit" disabled={loading}>
-              {loading ? "Sending..." : "Send Magic Link"}
-            </button>
-          </form>
-
-          {message ? <div className="auth-message">{message}</div> : null}
-        </div>
+        {message ? <div className="message-box">{message}</div> : null}
       </div>
     </div>
   );
