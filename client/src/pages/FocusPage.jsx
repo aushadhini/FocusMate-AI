@@ -25,15 +25,20 @@ function FocusPage({ session }) {
       const allTasks = data || [];
       setTasks(allTasks);
 
-      if (!activeTask && allTasks.length > 0) {
-        const firstOpenTask =
-          allTasks.find((task) => !task.completed) || allTasks[0];
-        setActiveTask(firstOpenTask);
-      }
+      setActiveTask((previousTask) => {
+        if (!allTasks.length) return null;
+
+        if (previousTask) {
+          const matchedTask = allTasks.find((task) => task.id === previousTask.id);
+          if (matchedTask) return matchedTask;
+        }
+
+        return allTasks.find((task) => !task.completed) || allTasks[0];
+      });
     };
 
     loadTasks();
-  }, [user, activeTask]);
+  }, [user]);
 
   return (
     <div className="page-grid focus-grid">

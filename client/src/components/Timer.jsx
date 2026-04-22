@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../supabase";
 
 function Timer({ activeTask, user }) {
@@ -9,12 +9,12 @@ function Timer({ activeTask, user }) {
   const [isRunning, setIsRunning] = useState(false);
   const [sessions, setSessions] = useState(0);
 
-  useEffect(() => {
-    let ignore = false;
+  const intervalRef = useRef(null);
 
+  useEffect(() => {
     const loadSessions = async () => {
       if (!user) {
-        if (!ignore) setSessions(0);
+        setSessions(0);
         return;
       }
 
@@ -28,78 +28,54 @@ function Timer({ activeTask, user }) {
         return;
       }
 
-      if (!ignore) {
-        setSessions(count || 0);
-      }
+      setSessions(count || 0);
     };
 
     loadSessions();
-
-    return () => {
-      ignore = true;
-    };
   }, [user]);
+
+  const completeSession = useCallback(async () => {
+    if (!user || !activeTask) return;
+
+    const { error } = await supabase.from("sessions").insert([
+      {
+        user_id: user.id,
+        task_id: activeTask.id,
+        duration_minutes: FOCUS_MINUTES,
+      },
+    ]);
+
+    if (error) {
+      console.error("Session save error:", error.message);
+      return;
+    }
+
+    setSessions((prev) => prev + 1);
+    setIsRunning(false);
+    window.alert("Focus session completed!");
+  }, [user, activeTask, FOCUS_MINUTES]);
 
   useEffect(() => {
     if (!isRunning) return;
 
-    const timer = setInterval(() => {
-      setSecondsLeft((prev) => prev - 1);
+    intervalRef.current = setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current);
+          completeSession();
+          return FOCUS_SECONDS;
+        }
+
+        return prev - 1;
+      });
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [isRunning]);
+    return () => clearInterval(intervalRef.current);
+  }, [isRunning, completeSession, FOCUS_SECONDS]);
 
-  useEffect(() => {
-    if (secondsLeft > 0 || !isRunning) return;
-
-    const completeSession = async () => {
-      setIsRunning(false);
-
-      if (!user || !activeTask) return;
-
-      const payload = {
-        user_id: user.id,
-        task_id: activeTask.id,
-        task_text: activeTask.text,
-        duration_minutes: FOCUS_MINUTES,
-        completed_at: new Date().toISOString(),
-      };
-
-      const { error } = await supabase.from("sessions").insert([payload]);
-
-      if (error) {
-        console.error("Save session error:", error.message);
-
-        const fallbackPayload = {
-          user_id: user.id,
-          task_id: activeTask.id,
-          task_text: activeTask.text,
-          duration_minutes: FOCUS_MINUTES,
-        };
-
-        const fallback = await supabase.from("sessions").insert([fallbackPayload]);
-
-        if (fallback.error) {
-          console.error("Fallback save session error:", fallback.error.message);
-          return;
-        }
-      }
-
-      setSessions((prev) => prev + 1);
-      alert("Focus session completed!");
-      setSecondsLeft(FOCUS_SECONDS);
-    };
-
-    completeSession();
-  }, [secondsLeft, isRunning, user, activeTask]);
-
-  const minutes = Math.floor(secondsLeft / 60);
-  const seconds = secondsLeft % 60;
-
-  const startTimer = () => {
+  const handleStart = () => {
     if (!activeTask) {
-      alert("Please select a task first.");
+      window.alert("Please select a task first.");
       return;
     }
 
@@ -110,35 +86,46 @@ function Timer({ activeTask, user }) {
     setIsRunning(true);
   };
 
-  const pauseTimer = () => setIsRunning(false);
-
-  const resetTimer = () => {
+  const handlePause = () => {
     setIsRunning(false);
+    clearInterval(intervalRef.current);
+  };
+
+  const handleReset = () => {
+    setIsRunning(false);
+    clearInterval(intervalRef.current);
     setSecondsLeft(FOCUS_SECONDS);
   };
+
+  const minutes = Math.floor(secondsLeft / 60);
+  const seconds = secondsLeft % 60;
 
   return (
     <div className="timer-card">
       <p className="timer-task">
-        {activeTask ? `Working on: ${activeTask.text}` : "Select a task to focus on"}
+        {activeTask ? activeTask.text : "No task selected"}
       </p>
 
       <div className="timer-circle">
         <h2>
-          {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+          {minutes}:{String(seconds).padStart(2, "0")}
         </h2>
       </div>
 
-      <p className="timer-meta">Sessions completed: {sessions}</p>
+      <p className="timer-meta">{sessions} sessions completed</p>
 
       <div className="timer-actions">
-        <button className="btn btn-primary" onClick={startTimer}>
-          Start
-        </button>
-        <button className="btn btn-secondary" onClick={pauseTimer}>
-          Pause
-        </button>
-        <button className="btn btn-ghost" onClick={resetTimer}>
+        {!isRunning ? (
+          <button className="btn btn-primary" onClick={handleStart}>
+            Start
+          </button>
+        ) : (
+          <button className="btn btn-secondary" onClick={handlePause}>
+            Pause
+          </button>
+        )}
+
+        <button className="btn btn-ghost" onClick={handleReset}>
           Reset
         </button>
       </div>

@@ -3,33 +3,13 @@ import { supabase } from "../supabase";
 
 function TasksPage({ session }) {
   const user = session?.user;
+
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editedText, setEditedText] = useState("");
 
-  useEffect(() => {
-    const loadTasks = async () => {
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("id", { ascending: true });
-
-      if (error) {
-        console.error("Fetch tasks error:", error.message);
-        return;
-      }
-
-      setTasks(data || []);
-    };
-
-    loadTasks();
-  }, [user]);
-
-  const loadTasks = async () => {
+  const fetchTasks = async () => {
     if (!user) return;
 
     const { data, error } = await supabase
@@ -46,7 +26,11 @@ function TasksPage({ session }) {
     setTasks(data || []);
   };
 
-  const addTask = async () => {
+  useEffect(() => {
+    fetchTasks();
+  }, [user]);
+
+  const handleAddTask = async () => {
     if (!newTask.trim() || !user) return;
 
     const { error } = await supabase.from("tasks").insert([
@@ -63,10 +47,10 @@ function TasksPage({ session }) {
     }
 
     setNewTask("");
-    loadTasks();
+    fetchTasks();
   };
 
-  const generateTask = () => {
+  const handleSuggest = () => {
     const suggestions = [
       "Complete one coding exercise",
       "Review today’s lecture notes",
@@ -77,12 +61,11 @@ function TasksPage({ session }) {
       "Plan tomorrow’s top 3 tasks",
     ];
 
-    const randomTask =
-      suggestions[Math.floor(Math.random() * suggestions.length)];
+    const randomTask = suggestions[Math.floor(Math.random() * suggestions.length)];
     setNewTask(randomTask);
   };
 
-  const toggleTask = async (task) => {
+  const handleToggleTask = async (task) => {
     const { error } = await supabase
       .from("tasks")
       .update({ completed: !task.completed })
@@ -93,10 +76,10 @@ function TasksPage({ session }) {
       return;
     }
 
-    loadTasks();
+    fetchTasks();
   };
 
-  const deleteTask = async (id) => {
+  const handleDeleteTask = async (id) => {
     const { error } = await supabase.from("tasks").delete().eq("id", id);
 
     if (error) {
@@ -104,10 +87,10 @@ function TasksPage({ session }) {
       return;
     }
 
-    loadTasks();
+    fetchTasks();
   };
 
-  const saveEdit = async (id) => {
+  const handleSaveEdit = async (id) => {
     if (!editedText.trim()) return;
 
     const { error } = await supabase
@@ -122,7 +105,7 @@ function TasksPage({ session }) {
 
     setEditingId(null);
     setEditedText("");
-    loadTasks();
+    fetchTasks();
   };
 
   return (
@@ -141,15 +124,15 @@ function TasksPage({ session }) {
             type="text"
             placeholder="Add a new task..."
             value={newTask}
-            onChange={(e) => setNewTask(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") addTask();
+            onChange={(event) => setNewTask(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") handleAddTask();
             }}
           />
-          <button className="btn btn-primary" onClick={addTask}>
+          <button className="btn btn-primary" onClick={handleAddTask}>
             Add
           </button>
-          <button className="btn btn-secondary" onClick={generateTask}>
+          <button className="btn btn-secondary" onClick={handleSuggest}>
             Suggest
           </button>
         </div>
@@ -173,14 +156,14 @@ function TasksPage({ session }) {
                   <input
                     type="checkbox"
                     checked={task.completed}
-                    onChange={() => toggleTask(task)}
+                    onChange={() => handleToggleTask(task)}
                   />
 
                   {editingId === task.id ? (
                     <input
                       className="input"
                       value={editedText}
-                      onChange={(e) => setEditedText(e.target.value)}
+                      onChange={(event) => setEditedText(event.target.value)}
                     />
                   ) : (
                     <div>
@@ -196,7 +179,10 @@ function TasksPage({ session }) {
 
                 <div className="task-actions">
                   {editingId === task.id ? (
-                    <button className="icon-btn save-btn" onClick={() => saveEdit(task.id)}>
+                    <button
+                      className="icon-btn save-btn"
+                      onClick={() => handleSaveEdit(task.id)}
+                    >
                       Save
                     </button>
                   ) : (
@@ -213,7 +199,7 @@ function TasksPage({ session }) {
 
                   <button
                     className="icon-btn delete-btn"
-                    onClick={() => deleteTask(task.id)}
+                    onClick={() => handleDeleteTask(task.id)}
                   >
                     Delete
                   </button>

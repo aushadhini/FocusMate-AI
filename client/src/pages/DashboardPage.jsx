@@ -14,7 +14,6 @@ function DashboardPage({ session }) {
     currentStreak: 0,
     bestStreak: 0,
   });
-
   const [recentTasks, setRecentTasks] = useState([]);
 
   useEffect(() => {
@@ -23,24 +22,27 @@ function DashboardPage({ session }) {
     const loadDashboard = async () => {
       if (!user) return;
 
-      const [{ data: tasksData, error: tasksError }, { data: sessionsData, error: sessionsError }] =
-        await Promise.all([
-          supabase
-            .from("tasks")
-            .select("*")
-            .eq("user_id", user.id)
-            .order("id", { ascending: false }),
+      const [tasksResponse, sessionsResponse] = await Promise.all([
+        supabase
+          .from("tasks")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("id", { ascending: false }),
+        supabase
+          .from("sessions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("completed_at", { ascending: false }),
+      ]);
 
-          supabase
-            .from("sessions")
-            .select("*")
-            .eq("user_id", user.id)
-            .order("completed_at", { ascending: false }),
-        ]);
+      const tasks = tasksResponse.data || [];
+      let finalSessions = sessionsResponse.data || [];
 
-      let finalSessions = sessionsData || [];
+      if (tasksResponse.error) {
+        console.error("Dashboard tasks error:", tasksResponse.error.message);
+      }
 
-      if (sessionsError) {
+      if (sessionsResponse.error) {
         const fallback = await supabase
           .from("sessions")
           .select("*")
@@ -54,11 +56,6 @@ function DashboardPage({ session }) {
         }
       }
 
-      if (tasksError) {
-        console.error("Dashboard tasks error:", tasksError.message);
-      }
-
-      const tasks = tasksData || [];
       const todayKey = formatDateKey(new Date());
       const uniqueDays = getUniqueSessionDays(finalSessions);
 
@@ -258,7 +255,7 @@ function calculateCurrentStreak(uniqueDays, todayKey) {
   let cursor = hasToday ? new Date(today) : new Date(yesterday);
 
   while (daySet.has(formatDateKey(cursor))) {
-    streak++;
+    streak += 1;
     cursor.setDate(cursor.getDate() - 1);
   }
 
@@ -271,7 +268,7 @@ function calculateBestStreak(uniqueDays) {
   let best = 1;
   let current = 1;
 
-  for (let i = 1; i < uniqueDays.length; i++) {
+  for (let i = 1; i < uniqueDays.length; i += 1) {
     const prev = new Date(uniqueDays[i - 1]);
     const curr = new Date(uniqueDays[i]);
     const diff =
@@ -279,7 +276,7 @@ function calculateBestStreak(uniqueDays) {
       (1000 * 60 * 60 * 24);
 
     if (diff === 1) {
-      current++;
+      current += 1;
       best = Math.max(best, current);
     } else {
       current = 1;

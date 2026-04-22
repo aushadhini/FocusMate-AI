@@ -17,6 +17,29 @@ function AnalyticsPage({ session }) {
   useEffect(() => {
     let ignore = false;
 
+    const buildAnalytics = (sessionsData) => {
+      setSessions(sessionsData);
+
+      const today = new Date();
+      const todayKey = formatDateKey(today);
+      const uniqueDays = getUniqueSessionDays(sessionsData);
+
+      setStats({
+        total: sessionsData.length,
+        totalMinutes: sessionsData.reduce(
+          (sum, item) => sum + (item.duration_minutes || 0),
+          0
+        ),
+        today: sessionsData.filter((item) => {
+          const date = getSessionDate(item);
+          return formatDateKey(date) === todayKey;
+        }).length,
+        currentStreak: calculateCurrentStreak(uniqueDays, todayKey),
+        bestStreak: calculateBestStreak(uniqueDays),
+        thisWeek: countThisWeekSessions(sessionsData),
+      });
+    };
+
     const fetchSessions = async () => {
       if (!user) return;
 
@@ -38,44 +61,15 @@ function AnalyticsPage({ session }) {
           return;
         }
 
-        const sessionsData = fallback.data || [];
         if (!ignore) {
-          buildAnalytics(sessionsData);
+          buildAnalytics(fallback.data || []);
         }
         return;
       }
 
-      const sessionsData = data || [];
       if (!ignore) {
-        buildAnalytics(sessionsData);
+        buildAnalytics(data || []);
       }
-    };
-
-    const buildAnalytics = (sessionsData) => {
-      setSessions(sessionsData);
-
-      const today = new Date();
-      const todayKey = formatDateKey(today);
-
-      const uniqueDays = getUniqueSessionDays(sessionsData);
-      const currentStreak = calculateCurrentStreak(uniqueDays, todayKey);
-      const bestStreak = calculateBestStreak(uniqueDays);
-      const thisWeek = countThisWeekSessions(sessionsData);
-
-      setStats({
-        total: sessionsData.length,
-        totalMinutes: sessionsData.reduce(
-          (sum, item) => sum + (item.duration_minutes || 0),
-          0
-        ),
-        today: sessionsData.filter((item) => {
-          const date = getSessionDate(item);
-          return formatDateKey(date) === todayKey;
-        }).length,
-        currentStreak,
-        bestStreak,
-        thisWeek,
-      });
     };
 
     fetchSessions();
@@ -97,13 +91,14 @@ function AnalyticsPage({ session }) {
     const days = [];
     const today = new Date();
 
-    for (let i = 179; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const key = formatDateKey(d);
+    for (let i = 179; i >= 0; i -= 1) {
+      const currentDay = new Date(today);
+      currentDay.setDate(today.getDate() - i);
+      const key = formatDateKey(currentDay);
+
       days.push({
         key,
-        date: d,
+        date: currentDay,
         count: map.get(key) || 0,
       });
     }
@@ -116,14 +111,15 @@ function AnalyticsPage({ session }) {
     const labels = [];
     const countsMap = new Map();
 
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const key = formatDateKey(d);
+    for (let i = 6; i >= 0; i -= 1) {
+      const currentDay = new Date(today);
+      currentDay.setDate(today.getDate() - i);
+      const key = formatDateKey(currentDay);
       countsMap.set(key, 0);
+
       labels.push({
         key,
-        short: d.toLocaleDateString(undefined, { weekday: "short" }),
+        short: currentDay.toLocaleDateString(undefined, { weekday: "short" }),
       });
     }
 
@@ -222,9 +218,7 @@ function AnalyticsPage({ session }) {
                 <div
                   key={day.key}
                   className={`heatmap-cell ${getHeatLevelClass(day.count)}`}
-                  title={`${day.key} • ${day.count} session${
-                    day.count === 1 ? "" : "s"
-                  }`}
+                  title={`${day.key} • ${day.count} session${day.count === 1 ? "" : "s"}`}
                 />
               ))}
             </div>
@@ -246,9 +240,7 @@ function AnalyticsPage({ session }) {
               <div className="weekly-bar-wrap">
                 <div
                   className="weekly-bar"
-                  style={{
-                    height: `${Math.max(12, item.count * 22)}px`,
-                  }}
+                  style={{ height: `${Math.max(12, item.count * 22)}px` }}
                 />
               </div>
               <strong>{item.count}</strong>
@@ -354,7 +346,7 @@ function calculateCurrentStreak(uniqueDays, todayKey) {
   let cursor = hasToday ? new Date(today) : new Date(yesterday);
 
   while (daySet.has(formatDateKey(cursor))) {
-    streak++;
+    streak += 1;
     cursor.setDate(cursor.getDate() - 1);
   }
 
@@ -367,7 +359,7 @@ function calculateBestStreak(uniqueDays) {
   let best = 1;
   let current = 1;
 
-  for (let i = 1; i < uniqueDays.length; i++) {
+  for (let i = 1; i < uniqueDays.length; i += 1) {
     const prev = new Date(uniqueDays[i - 1]);
     const curr = new Date(uniqueDays[i]);
     const diff =
@@ -375,7 +367,7 @@ function calculateBestStreak(uniqueDays) {
       (1000 * 60 * 60 * 24);
 
     if (diff === 1) {
-      current++;
+      current += 1;
       best = Math.max(best, current);
     } else {
       current = 1;

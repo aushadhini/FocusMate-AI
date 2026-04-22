@@ -12,9 +12,8 @@ function AppLayout({ session }) {
     }
   };
 
-  const firstName =
-    user?.email?.split("@")[0]?.charAt(0)?.toUpperCase() +
-      user?.email?.split("@")[0]?.slice(1) || "User";
+  const emailPrefix = user?.email?.split("@")[0] || "user";
+  const firstName = `${emailPrefix.charAt(0).toUpperCase()}${emailPrefix.slice(1)}`;
 
   const navItems = [
     { to: "/dashboard", label: "Dashboard" },
@@ -23,6 +22,14 @@ function AppLayout({ session }) {
     { to: "/analytics", label: "Analytics" },
     { to: "/settings", label: "Settings" },
   ];
+
+  const pageTitles = {
+    "/dashboard": "Your Dashboard",
+    "/tasks": "Task Manager",
+    "/focus": "Focus Session",
+    "/analytics": "Analytics",
+    "/settings": "Settings",
+  };
 
   return (
     <div className="app-shell">
@@ -40,9 +47,7 @@ function AppLayout({ session }) {
             <NavLink
               key={item.to}
               to={item.to}
-              className={({ isActive }) =>
-                isActive ? "nav-link active" : "nav-link"
-              }
+              className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
             >
               {item.label}
             </NavLink>
@@ -51,9 +56,7 @@ function AppLayout({ session }) {
 
         <div className="sidebar-footer">
           <div className="user-chip">
-            <div className="avatar-circle">
-              {firstName?.charAt(0) || "U"}
-            </div>
+            <div className="avatar-circle">{firstName.charAt(0) || "U"}</div>
             <div className="user-meta">
               <strong>{firstName}</strong>
               <span>{user?.email}</span>
@@ -70,13 +73,7 @@ function AppLayout({ session }) {
         <header className="topbar">
           <div>
             <p className="eyebrow">Welcome back</p>
-            <h2 className="page-title">
-              {location.pathname === "/dashboard" && "Your Dashboard"}
-              {location.pathname === "/tasks" && "Task Manager"}
-              {location.pathname === "/focus" && "Focus Session"}
-              {location.pathname === "/analytics" && "Analytics"}
-              {location.pathname === "/settings" && "Settings"}
-            </h2>
+            <h2 className="page-title">{pageTitles[location.pathname] || "FocusMate AI"}</h2>
           </div>
         </header>
 
