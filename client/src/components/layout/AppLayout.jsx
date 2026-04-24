@@ -2,91 +2,96 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { supabase } from "../../supabase";
 
 function AppLayout({ session }) {
-  const user = session?.user;
   const location = useLocation();
+  const userEmail = session?.user?.email || "user@email.com";
+  const userName = userEmail.split("@")[0];
 
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Logout error:", error.message);
-    }
-  };
-
-  const emailPrefix = user?.email?.split("@")[0] || "user";
-  const firstName = `${emailPrefix.charAt(0).toUpperCase()}${emailPrefix.slice(1)}`;
-
-  const navItems = [
-    { to: "/dashboard", label: "Dashboard", icon: "⌘" },
-    { to: "/tasks", label: "Tasks", icon: "✓" },
-    { to: "/focus", label: "Focus", icon: "◉" },
-    { to: "/analytics", label: "Analytics", icon: "▣" },
-    { to: "/settings", label: "Settings", icon: "⚙" },
-  ];
-
-  const pageDetails = {
+  const pageTitles = {
     "/dashboard": {
-      title: "Your Dashboard",
-      subtitle: "A calm overview of your tasks, sessions, and momentum.",
+      label: "Welcome back",
+      title: "Dashboard",
+      desc: "Track your tasks, focus sessions, and productivity progress.",
     },
     "/tasks": {
+      label: "Welcome back",
       title: "Task Manager",
-      subtitle: "Create, edit, and organize what you want to finish today.",
+      desc: "Create, edit, and organize what you want to finish today.",
     },
     "/focus": {
-      title: "Focus Session",
-      subtitle: "Choose one task and protect your attention for 25 minutes.",
+      label: "Deep work",
+      title: "Focus Timer",
+      desc: "Choose one task and start a distraction-free focus session.",
     },
     "/analytics": {
+      label: "Your insights",
       title: "Analytics",
-      subtitle: "Understand your consistency and focus patterns.",
+      desc: "Review your progress, streaks, and focus patterns.",
     },
     "/settings": {
+      label: "Preferences",
       title: "Settings",
-      subtitle: "Manage your account and future workspace preferences.",
+      desc: "Manage your account and workspace preferences.",
     },
   };
 
-  const currentPage = pageDetails[location.pathname] || {
-    title: "FocusMate AI",
-    subtitle: "Study smarter. Focus deeper.",
+  const currentPage = pageTitles[location.pathname] || pageTitles["/dashboard"];
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand-block">
-          <div className="brand-logo">FM</div>
-          <div>
-            <h1 className="brand-title">FocusMate AI</h1>
-            <p className="brand-subtitle">Study smarter. Focus deeper.</p>
+        <div className="sidebar-top">
+          <div className="brand-block">
+            <div className="brand-logo">FM</div>
+            <div>
+              <h1 className="brand-title">FocusMate AI</h1>
+              <p className="brand-subtitle">Study smarter. Focus deeper.</p>
+            </div>
           </div>
-        </div>
 
-        <nav className="sidebar-nav" aria-label="Main navigation">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span>{item.label}</span>
+          <nav className="sidebar-nav">
+            <NavLink to="/dashboard" className="nav-link">
+              <span className="nav-icon">⌘</span>
+              Dashboard
             </NavLink>
-          ))}
-        </nav>
 
-        <div className="sidebar-insight">
-          <p className="eyebrow">Focus tip</p>
-          <h3>One task. One timer.</h3>
-          <p>Pick a single task before starting your session to reduce switching.</p>
+            <NavLink to="/tasks" className="nav-link">
+              <span className="nav-icon">✓</span>
+              Tasks
+            </NavLink>
+
+            <NavLink to="/focus" className="nav-link">
+              <span className="nav-icon">◉</span>
+              Focus
+            </NavLink>
+
+            <NavLink to="/analytics" className="nav-link">
+              <span className="nav-icon">▣</span>
+              Analytics
+            </NavLink>
+
+            <NavLink to="/settings" className="nav-link">
+              <span className="nav-icon">⚙</span>
+              Settings
+            </NavLink>
+          </nav>
         </div>
 
         <div className="sidebar-footer">
+          <div className="focus-tip">
+            <span>Focus Tip</span>
+            <strong>One task. One timer.</strong>
+            <p>Pick a single task before starting your session to reduce switching.</p>
+          </div>
+
           <div className="user-chip">
-            <div className="avatar-circle">{firstName.charAt(0) || "U"}</div>
+            <div className="avatar-circle">{userName.charAt(0).toUpperCase()}</div>
             <div className="user-meta">
-              <strong>{firstName}</strong>
-              <span>{user?.email}</span>
+              <strong>{userName}</strong>
+              <span>{userEmail}</span>
             </div>
           </div>
 
@@ -99,19 +104,20 @@ function AppLayout({ session }) {
       <main className="main-panel">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Welcome back</p>
+            <span className="eyebrow">{currentPage.label}</span>
             <h2 className="page-title">{currentPage.title}</h2>
-            <p className="page-subtitle">{currentPage.subtitle}</p>
+            <p className="hero-copy">{currentPage.desc}</p>
           </div>
-          <div className="topbar-pill">
-            <span className="pulse-dot" />
+
+          <div className="workspace-status">
+            <span></span>
             Workspace online
           </div>
         </header>
 
-        <div className="page-content">
+        <section className="page-content">
           <Outlet />
-        </div>
+        </section>
       </main>
     </div>
   );
