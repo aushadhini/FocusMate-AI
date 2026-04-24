@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { supabase } from "./supabase";
+
 import Auth from "./Auth";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import AppLayout from "./components/layout/AppLayout";
+
 import DashboardPage from "./pages/DashboardPage";
 import TasksPage from "./pages/TasksPage";
 import FocusPage from "./pages/FocusPage";
@@ -17,24 +19,24 @@ function App() {
   useEffect(() => {
     let isMounted = true;
 
-    const initializeSession = async () => {
+    const loadSession = async () => {
       const {
-        data: { session: currentSession },
+        data: { session },
       } = await supabase.auth.getSession();
 
       if (isMounted) {
-        setSession(currentSession);
+        setSession(session);
         setLoading(false);
       }
     };
 
-    initializeSession();
+    loadSession();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (isMounted) {
-        setSession(nextSession);
+        setSession(session);
         setLoading(false);
       }
     });
@@ -49,49 +51,33 @@ function App() {
     return (
       <div className="screen-center">
         <div className="loading-card">
-          <h2>Loading FocusMate AI...</h2>
-          <p>Please wait a moment.</p>
+          <span className="eyebrow">FocusMate AI</span>
+          <h2>Loading your workspace...</h2>
+          <p className="muted">Preparing your dashboard.</p>
         </div>
       </div>
     );
   }
 
+  if (!session) return <Auth />;
+
   return (
     <Routes>
       <Route
-        path="/login"
-        element={!session ? <Auth /> : <Navigate to="/dashboard" replace />}
-      />
-
-      <Route
         path="/"
-        element={
-          session ? (
-            <Navigate to="/dashboard" replace />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-
-      <Route
         element={
           <ProtectedRoute session={session}>
             <AppLayout session={session} />
           </ProtectedRoute>
         }
       >
-        <Route path="/dashboard" element={<DashboardPage session={session} />} />
-        <Route path="/tasks" element={<TasksPage session={session} />} />
-        <Route path="/focus" element={<FocusPage session={session} />} />
-        <Route path="/analytics" element={<AnalyticsPage session={session} />} />
-        <Route path="/settings" element={<SettingsPage session={session} />} />
+        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="dashboard" element={<DashboardPage session={session} />} />
+        <Route path="tasks" element={<TasksPage session={session} />} />
+        <Route path="focus" element={<FocusPage session={session} />} />
+        <Route path="analytics" element={<AnalyticsPage session={session} />} />
+        <Route path="settings" element={<SettingsPage session={session} />} />
       </Route>
-
-      <Route
-        path="*"
-        element={<Navigate to={session ? "/dashboard" : "/login"} replace />}
-      />
     </Routes>
   );
 }

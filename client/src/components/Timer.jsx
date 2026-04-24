@@ -99,35 +99,40 @@ function Timer({ activeTask, user }) {
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
+  const progress = ((FOCUS_SECONDS - secondsLeft) / FOCUS_SECONDS) * 100;
 
   return (
-    <div className="timer-card">
-      <p className="timer-task">
-        {activeTask ? activeTask.text : "No task selected"}
-      </p>
+    <div className={isRunning ? "timer-card running" : "timer-card"}>
+      <div className="timer-task-card">
+        <span className="timer-task-label">Current task</span>
+        <p className="timer-task">{activeTask ? activeTask.text : "No task selected"}</p>
+      </div>
 
-      <div className="timer-circle">
-        <h2>
-          {minutes}:{String(seconds).padStart(2, "0")}
-        </h2>
+      <div className="timer-circle" style={{ "--progress": `${progress}%` }}>
+        <div className="timer-inner">
+          <span>{isRunning ? "In focus" : "Ready"}</span>
+          <h2>
+            {minutes}:{String(seconds).padStart(2, "0")}
+          </h2>
+        </div>
+      </div>
+
+      <div className="timer-progress">
+        <div className="progress-track">
+          <div className="progress-fill" style={{ width: `${progress}%` }} />
+        </div>
       </div>
 
       <p className="timer-meta">{sessions} sessions completed</p>
 
       <div className="timer-actions">
         {!isRunning ? (
-          <button className="btn btn-primary" onClick={handleStart}>
-            Start
-          </button>
+          <button className="btn btn-primary" onClick={handleStart}>Start Focus</button>
         ) : (
-          <button className="btn btn-secondary" onClick={handlePause}>
-            Pause
-          </button>
+          <button className="btn btn-secondary" onClick={handlePause}>Pause</button>
         )}
 
-        <button className="btn btn-ghost" onClick={handleReset}>
-          Reset
-        </button>
+        <button className="btn btn-ghost" onClick={handleReset}>Reset</button>
       </div>
     </div>
   );

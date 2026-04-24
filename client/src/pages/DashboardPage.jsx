@@ -1,20 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabase";
 
 function DashboardPage({ session }) {
   const user = session?.user;
 
-  const [stats, setStats] = useState({
-    totalSessions: 0,
-    totalMinutes: 0,
-    todaySessions: 0,
-    pendingTasks: 0,
-    completedTasks: 0,
-    currentStreak: 0,
-    bestStreak: 0,
-  });
-  const [recentTasks, setRecentTasks] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [sessions, setSessions] = useState([]);
 
   useEffect(() => {
     let ignore = false;
@@ -28,6 +20,7 @@ function DashboardPage({ session }) {
           .select("*")
           .eq("user_id", user.id)
           .order("id", { ascending: false }),
+
         supabase
           .from("sessions")
           .select("*")
@@ -35,47 +28,17 @@ function DashboardPage({ session }) {
           .order("completed_at", { ascending: false }),
       ]);
 
-      const tasks = tasksResponse.data || [];
-      let finalSessions = sessionsResponse.data || [];
-
       if (tasksResponse.error) {
         console.error("Dashboard tasks error:", tasksResponse.error.message);
       }
 
       if (sessionsResponse.error) {
-        const fallback = await supabase
-          .from("sessions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
-
-        if (fallback.error) {
-          console.error("Dashboard sessions error:", fallback.error.message);
-        } else {
-          finalSessions = fallback.data || [];
-        }
+        console.error("Dashboard sessions error:", sessionsResponse.error.message);
       }
 
-      const todayKey = formatDateKey(new Date());
-      const uniqueDays = getUniqueSessionDays(finalSessions);
-
       if (!ignore) {
-        setStats({
-          totalSessions: finalSessions.length,
-          totalMinutes: finalSessions.reduce(
-            (sum, item) => sum + (item.duration_minutes || 0),
-            0
-          ),
-          todaySessions: finalSessions.filter(
-            (item) => formatDateKey(getSessionDate(item)) === todayKey
-          ).length,
-          pendingTasks: tasks.filter((task) => !task.completed).length,
-          completedTasks: tasks.filter((task) => task.completed).length,
-          currentStreak: calculateCurrentStreak(uniqueDays, todayKey),
-          bestStreak: calculateBestStreak(uniqueDays),
-        });
-
-        setRecentTasks(tasks.slice(0, 5));
+        setTasks(tasksResponse.data || []);
+        setSessions(sessionsResponse.data || []);
       }
     };
 
@@ -86,133 +49,207 @@ function DashboardPage({ session }) {
     };
   }, [user]);
 
+  const todayKey = formatDateKey(new Date());
+
+  const stats = useMemo(() => {
+    const completedTasks = tasks.filter((task) => task.completed).length;
+    const pendingTasks = tasks.length - completedTasks;
+    const totalMinutes = sessions.reduce(
+      (sum, item) => sum + (item.duration_minutes || 0),
+      0
+    );
+
+    const todaySessions = sessions.filter(
+      (item) => formatDateKey(getSessionDate(item)) === todayKey
+    ).length;
+
+    const uniqueDays = getUniqueSessionDays(sessions);
+
+    return {
+      totalTasks: tasks.length,
+      completedTasks,
+      pendingTasks,
+      totalSessions: sessions.length,
+      totalMinutes,
+      todaySessions,
+      currentStreak: calculateCurrentStreak(uniqueDays, todayKey),
+      bestStreak: calculateBestStreak(uniqueDays),
+    };
+  }, [tasks, sessions, todayKey]);
+
+  const recentTasks = tasks.slice(0, 5);
+
+  const progressPercent =
+    stats.totalTasks === 0
+      ? 0
+      : Math.round((stats.completedTasks / stats.totalTasks) * 100);
+
+  const focusGoalPercent = Math.min(
+    Math.round((stats.todaySessions / 4) * 100),
+    100
+  );
+
   const motivation =
     stats.currentStreak >= 7
-      ? "You are on fire. Keep protecting this streak."
+      ? "You’re building a powerful focus habit. Keep protecting your streak."
       : stats.currentStreak >= 3
-      ? "Strong consistency. A few more days and this becomes a real habit."
+      ? "Great rhythm. A few more consistent days will make this feel natural."
       : stats.totalSessions > 0
-      ? "You’ve already started. Keep showing up daily."
-      : "Start your first focus session and begin building your streak.";
+      ? "You’ve already started. Keep showing up one session at a time."
+      : "Start your first focus session and begin building your momentum.";
 
   return (
     <div className="page-grid">
-      <section className="hero-panel dashboard-hero">
-        <div>
-          <p className="eyebrow">Today’s overview</p>
-          <h3 className="hero-heading">Stay consistent and keep your flow going.</h3>
-          <p className="hero-copy">
-            Track your sessions, manage tasks, and build a real study rhythm with FocusMate AI.
+      <section className="dashboard-hero-premium">
+        <div className="hero-content">
+          <span className="eyebrow">FocusMate AI Dashboard</span>
+          <h2>Build focus, finish tasks, and protect your momentum.</h2>
+          <p>
+            Your daily productivity command center for tasks, focus sessions,
+            streaks, and smart progress tracking.
           </p>
+
+          <div className="hero-actions">
+            <Link to="/focus" className="btn btn-primary">
+              Start Focus Session
+            </Link>
+            <Link to="/tasks" className="btn btn-secondary">
+              Manage Tasks
+            </Link>
+          </div>
         </div>
 
-        <div className="quick-actions">
-          <Link to="/tasks" className="btn btn-primary">
-            Manage Tasks
-          </Link>
-          <Link to="/focus" className="btn btn-secondary">
-            Start Focusing
-          </Link>
+        <div className="hero-score-card">
+          <span>Today’s Focus Goal</span>
+          <strong>{stats.todaySessions}/4</strong>
+
+          <div className="progress-track">
+            <div
+              className="progress-fill"
+              style={{ width: `${focusGoalPercent}%` }}
+            />
+          </div>
+
+          <p>{focusGoalPercent}% completed today</p>
         </div>
       </section>
 
       <section className="stats-grid dashboard-stats-grid">
-        <div className="stat-card">
-          <span>Total Sessions</span>
-          <strong>{stats.totalSessions}</strong>
+        <StatCard label="Total Sessions" value={stats.totalSessions} icon="⏱️" />
+        <StatCard label="Focus Minutes" value={stats.totalMinutes} icon="⚡" />
+        <StatCard label="Today Sessions" value={stats.todaySessions} icon="🎯" />
+        <StatCard label="Tasks Left" value={stats.pendingTasks} icon="📌" />
+        <StatCard
+          label="Current Streak"
+          value={`${stats.currentStreak}d`}
+          icon="🔥"
+          special
+        />
+        <StatCard
+          label="Best Streak"
+          value={`${stats.bestStreak}d`}
+          icon="🏆"
+          special
+        />
+      </section>
+
+      <section className="dashboard-two-column">
+        <div className="content-card">
+          <div className="section-head">
+            <div>
+              <span className="eyebrow">Recent Tasks</span>
+              <h3>What’s on your list</h3>
+            </div>
+
+            <Link to="/tasks" className="text-link">
+              View all
+            </Link>
+          </div>
+
+          {recentTasks.length === 0 ? (
+            <div className="empty-state">
+              🚀 No tasks yet
+              <br />
+              Start by adding your first focus task.
+            </div>
+          ) : (
+            <div className="mini-list">
+              {recentTasks.map((task) => (
+                <div key={task.id} className="mini-list-item">
+                  <div className="task-mini-left">
+                    <span className={`task-dot ${task.completed ? "done" : ""}`}>
+                      {task.completed ? "✓" : ""}
+                    </span>
+                    <span>{task.text}</span>
+                  </div>
+
+                  <span
+                    className={`status-pill ${
+                      task.completed ? "status-done" : "status-open"
+                    }`}
+                  >
+                    {task.completed ? "Done" : "Open"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="stat-card">
-          <span>Total Focus Minutes</span>
-          <strong>{stats.totalMinutes}</strong>
-        </div>
+        <div className="content-card progress-card-premium">
+          <div className="section-head">
+            <div>
+              <span className="eyebrow">Progress</span>
+              <h3>Daily task progress</h3>
+            </div>
+          </div>
 
-        <div className="stat-card">
-          <span>Today’s Sessions</span>
-          <strong>{stats.todaySessions}</strong>
-        </div>
+          <div className="big-progress-number">{progressPercent}%</div>
 
-        <div className="stat-card">
-          <span>Pending Tasks</span>
-          <strong>{stats.pendingTasks}</strong>
-        </div>
+          <div className="progress-track">
+            <div
+              className="progress-fill"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
 
-        <div className="stat-card streak-card">
-          <span>🔥 Current Streak</span>
-          <strong>{stats.currentStreak} days</strong>
-        </div>
+          <div className="summary-grid">
+            <div className="summary-box">
+              <span>Completed</span>
+              <strong>{stats.completedTasks}</strong>
+            </div>
 
-        <div className="stat-card streak-card">
-          <span>🏆 Best Streak</span>
-          <strong>{stats.bestStreak} days</strong>
+            <div className="summary-box">
+              <span>Remaining</span>
+              <strong>{stats.pendingTasks}</strong>
+            </div>
+          </div>
         </div>
       </section>
 
       <section className="content-card motivation-card">
-        <div className="section-head">
-          <div>
-            <p className="eyebrow">Momentum</p>
-            <h3>Your consistency status</h3>
-          </div>
-        </div>
-
         <div className="motivation-box">
           <div className="motivation-icon">✨</div>
           <div>
+            <span className="eyebrow">Momentum</span>
             <h4>{motivation}</h4>
             <p>
-              Daily progress matters more than perfection. Even one finished session helps your streak and long-term consistency.
+              Small consistent progress creates real improvement. One completed
+              task and one focus session is enough to move forward today.
             </p>
           </div>
         </div>
       </section>
+    </div>
+  );
+}
 
-      <section className="content-card">
-        <div className="section-head">
-          <div>
-            <p className="eyebrow">Recent tasks</p>
-            <h3>What’s on your list</h3>
-          </div>
-          <Link to="/tasks" className="text-link">
-            View all
-          </Link>
-        </div>
-
-        {recentTasks.length === 0 ? (
-          <div className="empty-state">No tasks yet. Add your first task.</div>
-        ) : (
-          <div className="mini-list">
-            {recentTasks.map((task) => (
-              <div key={task.id} className="mini-list-item">
-                <span>{task.text}</span>
-                <span className={task.completed ? "status-done" : "status-open"}>
-                  {task.completed ? "Done" : "Open"}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="content-card">
-        <div className="section-head">
-          <div>
-            <p className="eyebrow">Progress</p>
-            <h3>Quick summary</h3>
-          </div>
-        </div>
-
-        <div className="summary-grid">
-          <div className="summary-box">
-            <span>Completed Tasks</span>
-            <strong>{stats.completedTasks}</strong>
-          </div>
-          <div className="summary-box">
-            <span>Tasks Left</span>
-            <strong>{stats.pendingTasks}</strong>
-          </div>
-        </div>
-      </section>
+function StatCard({ label, value, icon, special }) {
+  return (
+    <div className={`stat-card premium-stat ${special ? "streak-card" : ""}`}>
+      <div className="stat-icon">{icon}</div>
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   );
 }

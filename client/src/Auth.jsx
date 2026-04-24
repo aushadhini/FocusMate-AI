@@ -42,24 +42,53 @@ function Auth() {
 
   return (
     <div className="auth-shell">
-      <div className="auth-hero">
-        <div className="auth-badge">Premium Productivity Workspace</div>
-        <h1>Focus better. Organize tasks. Build your rhythm.</h1>
-        <p>
-          FocusMate AI helps you manage tasks, run Pomodoro sessions, and track
-          your consistency in one clean workspace.
-        </p>
-      </div>
+      <section className="auth-hero">
+        <div className="auth-orb auth-orb-one" />
+        <div className="auth-orb auth-orb-two" />
 
-      <div className="auth-card">
-        <p className="eyebrow">Welcome back</p>
-        <h2>Sign in to FocusMate AI</h2>
-        <p className="muted">
-          Continue with your saved tasks, sessions, and progress.
+        <div className="auth-hero-content">
+          <div className="auth-badge">✨ Premium Productivity Workspace</div>
+          <h1>Focus better. Plan smarter. Build your daily rhythm.</h1>
+          <p>
+            FocusMate AI brings your tasks, Pomodoro sessions, streaks, and
+            analytics into one polished workspace designed for deep work.
+          </p>
+
+          <div className="hero-grid">
+            <div className="hero-card">
+              <span className="hero-card-icon">⏱️</span>
+              <h3>Focused Pomodoro</h3>
+              <p>Run clean 25-minute sessions and save your progress.</p>
+            </div>
+            <div className="hero-card">
+              <span className="hero-card-icon">✅</span>
+              <h3>Smart Task Flow</h3>
+              <p>Capture tasks quickly and choose what matters next.</p>
+            </div>
+            <div className="hero-card">
+              <span className="hero-card-icon">📊</span>
+              <h3>Visual Analytics</h3>
+              <p>Track streaks, weekly activity, and total focus time.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="auth-card">
+        <div className="auth-card-header">
+          <div className="mini-logo">FM</div>
+          <div>
+            <p className="eyebrow">Welcome back</p>
+            <h2>Sign in to FocusMate AI</h2>
+          </div>
+        </div>
+
+        <p className="muted auth-copy">
+          Continue with your saved tasks, focus sessions, and progress history.
         </p>
 
         <button className="btn btn-primary full-width" onClick={signInWithGoogle}>
-          Continue with Google
+          <span>Continue with Google</span>
         </button>
 
         <div className="auth-divider">
@@ -78,12 +107,12 @@ function Auth() {
           />
 
           <button className="btn btn-secondary full-width" type="submit" disabled={loading}>
-            {loading ? "Sending..." : "Send Magic Link"}
+            {loading ? "Sending magic link..." : "Send Magic Link"}
           </button>
         </form>
 
         {message ? <div className="message-box">{message}</div> : null}
-      </div>
+      </section>
     </div>
   );
 }

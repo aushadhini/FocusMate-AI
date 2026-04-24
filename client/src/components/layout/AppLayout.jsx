@@ -16,19 +16,39 @@ function AppLayout({ session }) {
   const firstName = `${emailPrefix.charAt(0).toUpperCase()}${emailPrefix.slice(1)}`;
 
   const navItems = [
-    { to: "/dashboard", label: "Dashboard" },
-    { to: "/tasks", label: "Tasks" },
-    { to: "/focus", label: "Focus" },
-    { to: "/analytics", label: "Analytics" },
-    { to: "/settings", label: "Settings" },
+    { to: "/dashboard", label: "Dashboard", icon: "⌘" },
+    { to: "/tasks", label: "Tasks", icon: "✓" },
+    { to: "/focus", label: "Focus", icon: "◉" },
+    { to: "/analytics", label: "Analytics", icon: "▣" },
+    { to: "/settings", label: "Settings", icon: "⚙" },
   ];
 
-  const pageTitles = {
-    "/dashboard": "Your Dashboard",
-    "/tasks": "Task Manager",
-    "/focus": "Focus Session",
-    "/analytics": "Analytics",
-    "/settings": "Settings",
+  const pageDetails = {
+    "/dashboard": {
+      title: "Your Dashboard",
+      subtitle: "A calm overview of your tasks, sessions, and momentum.",
+    },
+    "/tasks": {
+      title: "Task Manager",
+      subtitle: "Create, edit, and organize what you want to finish today.",
+    },
+    "/focus": {
+      title: "Focus Session",
+      subtitle: "Choose one task and protect your attention for 25 minutes.",
+    },
+    "/analytics": {
+      title: "Analytics",
+      subtitle: "Understand your consistency and focus patterns.",
+    },
+    "/settings": {
+      title: "Settings",
+      subtitle: "Manage your account and future workspace preferences.",
+    },
+  };
+
+  const currentPage = pageDetails[location.pathname] || {
+    title: "FocusMate AI",
+    subtitle: "Study smarter. Focus deeper.",
   };
 
   return (
@@ -42,17 +62,24 @@ function AppLayout({ session }) {
           </div>
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" aria-label="Main navigation">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
             >
-              {item.label}
+              <span className="nav-icon">{item.icon}</span>
+              <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>
+
+        <div className="sidebar-insight">
+          <p className="eyebrow">Focus tip</p>
+          <h3>One task. One timer.</h3>
+          <p>Pick a single task before starting your session to reduce switching.</p>
+        </div>
 
         <div className="sidebar-footer">
           <div className="user-chip">
@@ -73,7 +100,12 @@ function AppLayout({ session }) {
         <header className="topbar">
           <div>
             <p className="eyebrow">Welcome back</p>
-            <h2 className="page-title">{pageTitles[location.pathname] || "FocusMate AI"}</h2>
+            <h2 className="page-title">{currentPage.title}</h2>
+            <p className="page-subtitle">{currentPage.subtitle}</p>
+          </div>
+          <div className="topbar-pill">
+            <span className="pulse-dot" />
+            Workspace online
           </div>
         </header>
 
