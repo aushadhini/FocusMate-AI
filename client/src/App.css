@@ -1746,3 +1746,154 @@ p {
     font-size: 2.6rem;
   }
 }
+
+/* MICRO ANIMATIONS */
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes softPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(99, 102, 241, 0);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(99, 102, 241, 0.18);
+  }
+}
+
+@keyframes floatSoft {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.hero-panel,
+.content-card,
+.stat-card,
+.summary-box,
+.timer-card,
+.dashboard-hero-premium {
+  animation: fadeUp 0.45s ease both;
+}
+
+.stat-card:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stat-card:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.stat-card:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.stat-card:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.btn,
+.icon-btn,
+.nav-link,
+.task-card,
+.focus-task,
+.mini-list-item,
+.session-card,
+.settings-row {
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease,
+    background 0.22s ease,
+    opacity 0.22s ease;
+}
+
+.btn:hover,
+.icon-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.28);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 16px 35px rgba(99, 102, 241, 0.32);
+}
+
+.nav-link:hover {
+  transform: translateX(4px);
+}
+
+.nav-link.active {
+  animation: softPulse 2.8s ease-in-out infinite;
+}
+
+.brand-logo,
+.mini-logo {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.brand-logo:hover,
+.mini-logo:hover {
+  transform: rotate(-4deg) scale(1.05);
+}
+
+.timer-circle {
+  animation: floatSoft 4s ease-in-out infinite;
+}
+
+.focus-task.active {
+  animation: softPulse 2.5s ease-in-out infinite;
+}
+
+.task-card:hover,
+.content-card:hover,
+.stat-card:hover,
+.summary-box:hover {
+  transform: translateY(-4px);
+}
+
+.input {
+  transition:
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease;
+}
+
+.input:hover {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.progress-fill,
+.weekly-bar {
+  transition:
+    width 0.45s ease,
+    height 0.45s ease,
+    transform 0.22s ease;
+}
+
+.weekly-bar-card:hover .weekly-bar {
+  transform: scaleY(1.05);
+}
+
+.badge-card {
+  transition:
+    transform 0.24s ease,
+    box-shadow 0.24s ease,
+    border-color 0.24s ease;
+}
+
+.badge-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(99, 102, 241, 0.28);
+  box-shadow: var(--glow);
+}
