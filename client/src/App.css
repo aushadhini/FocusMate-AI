@@ -1897,9 +1897,3 @@ p {
   border-color: rgba(99, 102, 241, 0.28);
   box-shadow: var(--glow);
 }
-
-.badge-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(99, 102, 241, 0.28);
-  box-shadow: var(--glow);
-} 
