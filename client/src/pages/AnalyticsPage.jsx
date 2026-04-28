@@ -61,15 +61,11 @@ function AnalyticsPage({ session }) {
           return;
         }
 
-        if (!ignore) {
-          buildAnalytics(fallback.data || []);
-        }
+        if (!ignore) buildAnalytics(fallback.data || []);
         return;
       }
 
-      if (!ignore) {
-        buildAnalytics(data || []);
-      }
+      if (!ignore) buildAnalytics(data || []);
     };
 
     fetchSessions();
@@ -91,7 +87,7 @@ function AnalyticsPage({ session }) {
     const days = [];
     const today = new Date();
 
-    for (let i = 179; i >= 0; i -= 1) {
+    for (let i = 359; i >= 0; i -= 1) {
       const currentDay = new Date(today);
       currentDay.setDate(today.getDate() - i);
       const key = formatDateKey(currentDay);
@@ -135,6 +131,8 @@ function AnalyticsPage({ session }) {
       count: countsMap.get(item.key) || 0,
     }));
   }, [sessions]);
+
+  const maxWeeklyCount = Math.max(...weeklyData.map((item) => item.count), 1);
 
   const badges = [
     {
@@ -195,7 +193,7 @@ function AnalyticsPage({ session }) {
         <div className="section-head">
           <div>
             <p className="eyebrow">Calendar heatmap</p>
-            <h3>Your last 180 days</h3>
+            <h3>Your last 360 days</h3>
           </div>
         </div>
 
@@ -213,14 +211,16 @@ function AnalyticsPage({ session }) {
               <span>More</span>
             </div>
 
-            <div className="heatmap-grid">
-              {heatmapDays.map((day) => (
-                <div
-                  key={day.key}
-                  className={`heatmap-cell ${getHeatLevelClass(day.count)}`}
-                  title={`${day.key} • ${day.count} session${day.count === 1 ? "" : "s"}`}
-                />
-              ))}
+            <div className="heatmap-scroll">
+              <div className="heatmap-grid heatmap-grid-360">
+                {heatmapDays.map((day) => (
+                  <div
+                    key={day.key}
+                    className={`heatmap-cell ${getHeatLevelClass(day.count)}`}
+                    title={`${day.key} • ${day.count} session${day.count === 1 ? "" : "s"}`}
+                  />
+                ))}
+              </div>
             </div>
           </>
         )}
@@ -234,19 +234,27 @@ function AnalyticsPage({ session }) {
           </div>
         </div>
 
-        <div className="weekly-chart">
-          {weeklyData.map((item) => (
-            <div key={item.key} className="weekly-bar-card">
-              <div className="weekly-bar-wrap">
-                <div
-                  className="weekly-bar"
-                  style={{ height: `${Math.max(12, item.count * 22)}px` }}
-                />
+        <div className="weekly-chart proper-weekly-chart">
+          <div className="weekly-y-axis">
+            <span>{maxWeeklyCount}</span>
+            <span>{Math.ceil(maxWeeklyCount / 2)}</span>
+            <span>0</span>
+          </div>
+
+          {weeklyData.map((item) => {
+            const height = item.count === 0 ? 8 : Math.max(18, (item.count / maxWeeklyCount) * 140);
+
+            return (
+              <div key={item.key} className="weekly-bar-card">
+                <div className="weekly-bar-wrap">
+                  <div className="weekly-bar" style={{ height: `${height}px` }} />
+                </div>
+                <strong>{item.count}</strong>
+                <span>{item.short}</span>
+                {item.count === 0 && <small className="weekly-empty-label">No sessions</small>}
               </div>
-              <strong>{item.count}</strong>
-              <span>{item.short}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
