@@ -40,55 +40,44 @@ function AppLayout({ session }) {
     await supabase.auth.signOut();
   };
 
+  const navItems = [
+    { to: "/dashboard", icon: "⌘", label: "Dashboard" },
+    { to: "/tasks", icon: "✓", label: "Tasks" },
+    { to: "/focus", icon: "◉", label: "Focus" },
+    { to: "/analytics", icon: "▣", label: "Analytics" },
+    { to: "/settings", icon: "⚙", label: "Settings" },
+  ];
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar-top">
-          <div className="brand-block">
-            <div className="brand-logo">FM</div>
-            <div>
-              <h1 className="brand-title">FocusMate AI</h1>
-              <p className="brand-subtitle">Study smarter. Focus deeper.</p>
-            </div>
+        <div className="sidebar-brand">
+          <div className="brand-logo">FM</div>
+
+          <div className="brand-copy">
+            <h1>FocusMate AI</h1>
+            <p>Study smarter. Focus deeper.</p>
           </div>
-
-          <nav className="sidebar-nav">
-            <NavLink to="/dashboard" className="nav-link">
-              <span className="nav-icon">⌘</span>
-              Dashboard
-            </NavLink>
-
-            <NavLink to="/tasks" className="nav-link">
-              <span className="nav-icon">✓</span>
-              Tasks
-            </NavLink>
-
-            <NavLink to="/focus" className="nav-link">
-              <span className="nav-icon">◉</span>
-              Focus
-            </NavLink>
-
-            <NavLink to="/analytics" className="nav-link">
-              <span className="nav-icon">▣</span>
-              Analytics
-            </NavLink>
-
-            <NavLink to="/settings" className="nav-link">
-              <span className="nav-icon">⚙</span>
-              Settings
-            </NavLink>
-          </nav>
         </div>
 
-        <div className="sidebar-footer">
-          <div className="focus-tip">
-            <span>Focus Tip</span>
-            <strong>One task. One timer.</strong>
-            <p>Pick a single task before starting your session to reduce switching.</p>
+        <nav className="sidebar-nav" aria-label="Main navigation">
+          {navItems.map((item) => (
+            <NavLink key={item.to} to={item.to} className="nav-link">
+              <span className="nav-icon">{item.icon}</span>
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="sidebar-tip">
+            <span>Today’s tip</span>
+            <p>Pick one task before starting your timer.</p>
           </div>
 
-          <div className="user-chip">
+          <div className="sidebar-account">
             <div className="avatar-circle">{userName.charAt(0).toUpperCase()}</div>
+
             <div className="user-meta">
               <strong>{userName}</strong>
               <span>{userEmail}</span>
