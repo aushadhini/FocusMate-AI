@@ -1,16 +1,35 @@
-# React + Vite
+🚀 FocusMate AI
+FocusMate AI is a modern productivity web application designed to help users stay focused, manage tasks efficiently, and track progress using data-driven insights.
+It combines task management, Pomodoro focus sessions, and analytics dashboards into a clean, user-friendly interface.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+✨ Features
 
-Currently, two official plugins are available:
+🔐 Authentication
+Secure login/signup with Supabase Auth
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+✅ Task Management
+Add, edit, delete tasks
+Mark tasks as completed
+Track active tasks
 
-## React Compiler
+⏱ Pomodoro Timer
+25-minute focus sessions
+Session tracking and persistence
+Real-time countdown
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+📊 Analytics Dashboard
+Track productivity trends
+Weekly activity visualization
+Focus session insights
 
-## Expanding the ESLint configuration
+🎨 Modern UI
+Clean and responsive design
+Light/Dark theme support
+Smooth user experience
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+🛠 Tech Stack
+Frontend: React.js
+Routing: React Router
+Backend / Database: Supabase
+Authentication: Supabase Auth
+Styling: CSS (Custom UI Design)
